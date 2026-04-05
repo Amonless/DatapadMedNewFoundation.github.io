@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Медицинский Терминал ВАР | New Foundation</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Chosen Palette: Deep Command (Slate-900 background, Blue-500 accents, Cyan data-lines, Red-500 alerts) -->
+    
+    <!-- Application Structure Plan: 
+         1. Dashboard: Оперативная сводка с круговой диаграммой приоритетов (Триаж).
+         2. Personnel: Иерархия должностей и обязанностей (Интерн -> Старший спец).
+         3. Surgical Hub: Глубокая база данных по операциям (Протезирование, Органы, Пневмоторакс).
+         4. Pharmacy & Binds: Список препаратов и готовые команды для быстрого RP-отыгрыша.
+         5. Protocols: Устав и правила поведения медика.
+    -->
+
+    <!-- Visualization & Content Choices: 
+         - Триаж: Интерактивный Doughnut Chart для визуализации загрузки мед-отсека.
+         - Хирургия: Использование вложенных аккордеонов для сложной логики (например, шаги установки протеза для Клона vs Существа).
+         - Обязанности: Сетка карточек с цветовой кодировкой рангов.
+         CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
+    -->
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;700&display=swap');
+
+        :root {
+            --terminal-bg: #0f172a;
+            --terminal-surface: #1e293b;
+            --terminal-accent: #3b82f6;
+            --terminal-text: #f1f5f9;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--terminal-bg);
+            color: var(--terminal-text);
+        }
+
+        .mono { font-family: 'JetBrains+Mono', monospace; }
+
+        .chart-container { 
+            position: relative; 
+            width: 100%; 
+            max-width: 420px; 
+            margin-left: auto; 
+            margin-right: auto; 
+            height: 300px; 
+        }
+
+        .tab-btn.active {
+            border-bottom: 3px solid var(--terminal-accent);
+            color: var(--terminal-accent);
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .step-node {
+            position: relative;
+            padding-left: 2rem;
+        }
+        .step-node::before {
+            content: '';
+            position: absolute;
+            left: 0.75rem;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #334155;
+        }
+
+        .scanline {
+            width: 100%;
+            height: 100px;
+            z-index: 99;
+            background: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(59, 130, 246, 0.05) 50%, rgba(0, 0, 0, 0) 100%);
+            opacity: 0.1;
+            position: fixed;
+            bottom: 100%;
+            pointer-events: none;
+            animation: scanline 8s linear infinite;
+        }
+
+        @keyframes scanline {
+            0% { bottom: 100%; }
+            100% { bottom: -100px; }
+        }
+
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="min-h-screen pb-12 overflow-x-hidden">
+
+    <div class="scanline"></div>
+
+    <!-- Header / Navigation -->
+    <header class="glass-panel sticky top-0 z-50 border-b border-slate-700">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between px-6 py-3">
+            <div class="flex items-center gap-3 mb-4 md:mb-0">
+                <div class="w-10 h-10 bg-blue-600 rounded flex items-center justify-center font-bold text-xl shadow-lg shadow-blue-900/20">✚</div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight uppercase mono">MED-TERMINAL v4.2</h1>
+                    <p class="text-[10px] text-blue-400 font-bold tracking-[0.2em]">REPUBLIC MEDICAL CORPS // NEW FOUNDATION</p>
+                </div>
+            </div>
+            <nav class="flex flex-wrap justify-center gap-1" id="main-nav">
+                <!-- Nav buttons populated by JS -->
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-6 mt-8">
+        
+        <!-- SECTION: DASHBOARD -->
+        <section id="sec-dashboard" class="content-section fade-in">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Triage Control -->
+                <div class="lg:col-span-1 glass-panel p-6 rounded-xl">
+                    <h3 class="text-sm font-bold text-slate-400 mb-6 uppercase tracking-widest mono">Сортировочный Центр</h3>
+                    <div class="chart-container">
+                        <canvas id="triageChart"></canvas>
+                    </div>
+                    <div class="mt-6 space-y-2" id="triage-legend">
+                        <!-- Legend items with quick-select behavior -->
+                    </div>
+                </div>
+
+                <!-- Triage Detail Panel -->
+                <div class="lg:col-span-2 glass-panel p-6 rounded-xl flex flex-col">
+                    <div id="triage-header" class="flex items-center gap-4 mb-6 border-b border-slate-700 pb-4">
+                        <div id="triage-status-dot" class="w-4 h-4 rounded-full bg-slate-600"></div>
+                        <h2 id="triage-title" class="text-2xl font-bold uppercase mono italic">Ожидание выбора...</h2>
+                    </div>
+                    <div id="triage-content" class="flex-grow space-y-6">
+                        <div class="flex flex-col items-center justify-center h-full text-slate-500 italic py-12">
+                            <p>Выберите категорию на графике или в списке для просмотра протокола.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Global Status Bar -->
+            <div class="mt-8 glass-panel p-4 rounded-xl flex flex-wrap gap-8 justify-around border-l-4 border-blue-500">
+                <div class="flex flex-col">
+                    <span class="text-[10px] text-slate-500 uppercase font-bold">Статус Отсека</span>
+                    <span class="text-green-400 font-bold mono">ГОТОВ К ПРИЕМУ</span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-[10px] text-slate-500 uppercase font-bold">Бакта-Резерв</span>
+                    <span class="text-blue-400 font-bold mono">88% (HIGH)</span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-[10px] text-slate-500 uppercase font-bold">Дежурный Хирург</span>
+                    <span class="text-white font-bold mono underline">ON-CALL</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: PERSONNEL (Hierarchical View) -->
+        <section id="sec-personnel" class="content-section fade-in hidden">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold mono mb-2 uppercase italic text-blue-500">Медицинская Иерархия</h2>
+                <p class="text-slate-400 max-w-2xl text-sm">Четкое разделение полномочий согласно уставу. Переход на следующую ступень возможен только после аттестации.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="personnel-grid">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+
+        <!-- SECTION: SURGERY (Advanced Hub) -->
+        <section id="sec-surgery" class="content-section fade-in hidden">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <!-- Sidebar topics -->
+                <div class="md:col-span-1 space-y-2" id="surgery-menu">
+                    <!-- Buttons populated by JS -->
+                </div>
+                <!-- Main surgery detail -->
+                <div class="md:col-span-3 glass-panel p-8 rounded-xl min-h-[500px]" id="surgery-viewer">
+                    <div class="flex flex-col items-center justify-center h-full opacity-30">
+                        <span class="text-6xl mb-4">🩻</span>
+                        <p class="mono text-center">ВЫБЕРИТЕ ТЕМУ ХИРУРГИИ ДЛЯ ПРОСМОТРА</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: PHARMACOLOGY & BINDS -->
+        <section id="sec-pharma" class="content-section fade-in hidden">
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                <!-- Drugs Grid -->
+                <div class="xl:col-span-2">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold mono uppercase italic">Фармакопея</h2>
+                        <div class="flex gap-2" id="pharma-tabs">
+                            <!-- JS populated -->
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="pharma-grid">
+                        <!-- JS populated -->
+                    </div>
+                </div>
+                <!-- Binds & Quick RP -->
+                <div class="xl:col-span-1">
+                    <h2 class="text-2xl font-bold mono uppercase italic mb-6 border-b border-red-900 pb-2 text-red-500">Боевые Бинды</h2>
+                    <div class="glass-panel p-6 rounded-xl space-y-4" id="binds-list">
+                        <!-- JS populated -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: PROTOCOLS / RULES -->
+        <section id="sec-protocols" class="content-section fade-in hidden">
+            <div class="max-w-3xl mx-auto glass-panel p-10 rounded-2xl border-t-4 border-blue-600 shadow-2xl">
+                <h2 class="text-center text-3xl font-bold mono mb-8 underline decoration-blue-600 decoration-2 underline-offset-8 uppercase">Устав Медика</h2>
+                <div class="space-y-6 text-slate-300 leading-relaxed" id="charter-text">
+                    <!-- JS Populated -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- DATA HUB ---
+
+        const APP_STATE = {
+            currentTab: 'dashboard',
+            triageChart: null
+        };
+
+        const NAV_ITEMS = [
+            { id: 'dashboard', label: '📊 Сводка', sectionId: 'sec-dashboard' },
+            { id: 'personnel', label: '🪖 Состав', sectionId: 'sec-personnel' },
+            { id: 'surgery', label: '🩻 Хирургия', sectionId: 'sec-surgery' },
+            { id: 'pharma', label: '💊 Аптечка/Бинды', sectionId: 'sec-pharma' },
+            { id: 'protocols', label: '📜 Устав', sectionId: 'sec-protocols' }
+        ];
+
+        const PERSONNEL_DATA = [
+            {
+                rank: 'Интерн',
+                limit: 'НИЗШИЙ',
+                color: 'slate',
+                duties: [
+                    'Проведение сканирования (Мульти-сканер)',
+                    'Лечение ожогов 1-3 степени',
+                    'Лечение простых переломов (без хирургии)',
+                    'Работа на регистратуре',
+                    'Изучение документов'
+                ]
+            },
+            {
+                rank: 'Младший специалист',
+                limit: 'СРЕДНИЙ',
+                color: 'blue',
+                duties: [
+                    'Обязанности интерна',
+                    'Лечение ожогов 4 степени (если не нужна ампутация)',
+                    'Лечение переломов с хирургическим вмешательством',
+                    'Обучение интернов основам'
+                ]
+            },
+            {
+                rank: 'Старший специалист',
+                limit: 'ВЫСШИЙ',
+                color: 'cyan',
+                duties: [
+                    'Обязанности мл. специалиста',
+                    'Координация действий на вылетах и в блоке',
+                    'Сложные операции (внутренние органы)',
+                    'Обучение мл. состава'
+                ]
+            }
+        ];
+
+        const SURGERY_DATA = [
+            {
+                id: 'prosthetics',
+                title: 'Репли-протезирование',
+                content: `
+                    <div class="space-y-4">
+                        <div class="p-4 bg-blue-900/20 border border-blue-500/30 rounded">
+                            <h4 class="font-bold mono uppercase text-blue-400 mb-2">Этап 1: Подготовка</h4>
+                            <p class="text-sm">Обработать рану, остановить кровотечение (Ситрим), замерить длину конечности.</p>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="p-4 bg-slate-800 rounded">
+                                <h5 class="font-bold text-xs uppercase mb-2 text-slate-400">Для Клона</h5>
+                                <ul class="text-xs space-y-1 list-disc pl-4">
+                                    <li>Взять синтеплоть со склада</li>
+                                    <li>Покрыть каркас и КСНИ синтеплотью</li>
+                                    <li>Обработать бактой для приживления</li>
+                                </ul>
+                            </div>
+                            <div class="p-4 bg-slate-800 rounded">
+                                <h5 class="font-bold text-xs uppercase mb-2 text-slate-400">Для других существ</h5>
+                                <ul class="text-xs space-y-1 list-disc pl-4">
+                                    <li>Взять образец кожи и плоти</li>
+                                    <li>Изготовить синтеплоть на синтезаторе</li>
+                                    <li>Покрыть протез и КСНИ</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="p-4 border-l-4 border-cyan-500 bg-cyan-900/10">
+                            <h4 class="font-bold mono text-sm uppercase text-cyan-400 mb-1">КСНИ (Интерфейс)</h4>
+                            <p class="text-xs italic">Комплексный Синтетический Нейронный Интерфейс подключается к нервам с помощью виброскальпеля и вживляется бактой.</p>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                id: 'pneumothorax',
+                title: 'Пневмоторакс',
+                content: `
+                    <div class="space-y-4">
+                        <p class="text-sm border-b border-slate-700 pb-2 italic">Диагностика через <b>/roll</b>: повреждение ребер и тип поражения.</p>
+                        <div class="grid grid-cols-1 gap-3">
+                            <div class="flex items-center gap-4 p-3 bg-slate-800/50 border border-slate-700 rounded">
+                                <div class="text-xl">💨</div>
+                                <div class="text-xs"><b class="text-white block uppercase">Закрытый (71-100)</b> Вентилирование легкого.</div>
+                            </div>
+                            <div class="flex items-center gap-4 p-3 bg-yellow-900/20 border border-yellow-700/30 rounded">
+                                <div class="text-xl">🔪</div>
+                                <div class="text-xs"><b class="text-white block uppercase">Открытый (31-70)</b> Ушивание дырки, удаление осколков, вентиляция.</div>
+                            </div>
+                            <div class="flex items-center gap-4 p-3 bg-red-900/20 border border-red-700/30 rounded">
+                                <div class="text-xl">⚠️</div>
+                                <div class="text-xs"><b class="text-white block uppercase">Клапанный (0-30)</b> Перевод в открытый, сшивание, вентиляция.</div>
+                            </div>
+                        </div>
+                    </div>
+                `
+            },
+            {
+                id: 'organs',
+                title: 'Внутренние Органы',
+                content: `
+                    <div class="space-y-4">
+                        <h4 class="font-bold mono uppercase text-blue-400">Процедура "Фундамент":</h4>
+                        <ol class="text-xs space-y-2 list-decimal pl-6">
+                            <li>Подключить к системе "Жизнеобеспечения"</li>
+                            <li>Ввести в наркозный сон (Сомниум)</li>
+                            <li>Запустить штучную циркуляцию крови</li>
+                            <li><b>Манипуляция:</b> /roll < 50 (Сшивание сосуда), /roll > 50 (Коагулянт)</li>
+                            <li>Ушивание раны (Поли-дерм)</li>
+                            <li>Вывод из наркоза (Нашак)</li>
+                        </ol>
+                    </div>
+                `
+            }
+        ];
+
+        const PHARMA_DATA = [
+            { name: 'Ситрим', cat: 'Кровь', desc: 'Коагулянт. Остановка венозных и малых артериальных кровотечений.' },
+            { name: 'Сомниум', cat: 'Наркоз', desc: 'Газ. Погружение в глубокий сон для операций.' },
+            { name: 'Холодок', cat: 'Ожоги', desc: 'Спрей. Эффективно охлаждает и лечит ожоги 1-3 степени.' },
+            { name: 'Крайном', cat: 'Нервы', desc: 'Через хромостринг восстанавливает нервную проводимость.' },
+            { name: 'Поли-дерм', cat: 'Хирургия', desc: 'Кожный герметик для быстрого закрытия операционных ран.' },
+            { name: 'Нашак', cat: 'Спец', desc: 'Нашатырный спирт. Вывод из наркоза/обморока.' }
+        ];
+
+        const BINDS = [
+            { cmd: '/me за руку оттащил бойца', label: 'Транспортировка' },
+            { cmd: '/me сделал разряд дефибриллятором', label: 'Дефибрилляция' },
+            { cmd: '/me распылил бактогаз', label: 'Бакто-граната' },
+            { cmd: '/roll 100', label: 'Универсальный шанс' }
+        ];
+
+        const TRIAGE_TYPES = [
+            { id: 'red', code: 'Красный', label: 'ЭКСТРЕННЫЙ', color: '#ef4444', desc: 'Артериальные кровотечения, пневмоторакс, ожог 4 ст. Помощь немедленно.' },
+            { id: 'yellow', code: 'Желтый', label: 'СРОЧНЫЙ', color: '#f59e0b', desc: 'Венозные кровотечения, закрытые переломы. Оказание помощи в течение 30-60 мин.' },
+            { id: 'green', code: 'Зеленый', label: 'СТАБИЛЬНЫЙ', color: '#10b981', desc: 'Ушибы, ожоги 1-2 ст. Могут ждать помощи или лечиться самостоятельно.' },
+            { id: 'black', code: 'Черный', label: 'БИО-УТИЛЬ', color: '#6366f1', desc: 'Травмы, несовместимые с жизнью. Остановка сердца (после 3 дефиб).'}
+        ];
+
+        // --- RENDER FUNCTIONS ---
+
+        function init() {
+            renderNav();
+            renderTriageDashboard();
+            renderPersonnel();
+            renderSurgeryMenu();
+            renderPharma();
+            renderBinds();
+            renderCharter();
+            switchTab('dashboard');
+        }
+
+        function renderNav() {
+            const container = document.getElementById('main-nav');
+            NAV_ITEMS.forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = 'tab-btn px-4 py-2 text-xs mono uppercase font-bold tracking-widest text-slate-400 hover:text-white transition-all';
+                btn.id = `nav-${item.id}`;
+                btn.innerText = item.label;
+                btn.onclick = () => switchTab(item.id);
+                container.appendChild(btn);
+            });
+        }
+
+        function switchTab(id) {
+            APP_STATE.currentTab = id;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`nav-${id}`).classList.add('active');
+
+            document.querySelectorAll('.content-section').forEach(s => s.classList.add('hidden'));
+            const target = NAV_ITEMS.find(n => n.id === id);
+            document.getElementById(target.sectionId).classList.remove('hidden');
+
+            if(id === 'dashboard') {
+                setTimeout(() => APP_STATE.triageChart.update(), 50);
+            }
+        }
+
+        function renderTriageDashboard() {
+            const ctx = document.getElementById('triageChart').getContext('2d');
+            const legendContainer = document.getElementById('triage-legend');
+
+            APP_STATE.triageChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: TRIAGE_TYPES.map(t => t.code),
+                    datasets: [{
+                        data: [25, 25, 25, 25],
+                        backgroundColor: TRIAGE_TYPES.map(t => t.color),
+                        borderWidth: 0,
+                        hoverOffset: 15
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    onClick: (evt, elements) => {
+                        if(elements.length > 0) {
+                            const idx = elements[0].index;
+                            showTriageDetail(TRIAGE_TYPES[idx]);
+                        }
+                    }
+                }
+            });
+
+            TRIAGE_TYPES.forEach(t => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between p-2 hover:bg-slate-800 rounded cursor-pointer transition-colors';
+                row.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-3 h-3 rounded-full" style="background:${t.color}"></div>
+                        <span class="text-xs mono font-bold uppercase">${t.code}</span>
+                    </div>
+                    <span class="text-[10px] text-slate-500 mono">${t.label}</span>
+                `;
+                row.onclick = () => showTriageDetail(t);
+                legendContainer.appendChild(row);
+            });
+        }
+
+        function showTriageDetail(data) {
+            document.getElementById('triage-status-dot').style.backgroundColor = data.color;
+            document.getElementById('triage-title').innerText = `Код: ${data.code}`;
+            document.getElementById('triage-title').style.color = data.color;
+
+            document.getElementById('triage-content').innerHTML = `
+                <div class="fade-in space-y-6">
+                    <p class="text-slate-300 leading-relaxed font-semibold italic">"${data.desc}"</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="p-4 bg-slate-800/40 border border-slate-700 rounded">
+                            <h4 class="text-[10px] uppercase text-slate-500 mb-2 font-bold mono">Допустимый персонал</h4>
+                            <p class="text-xs text-white">Все специалисты корпуса</p>
+                        </div>
+                        <div class="p-4 bg-slate-800/40 border border-slate-700 rounded">
+                            <h4 class="text-[10px] uppercase text-slate-500 mb-2 font-bold mono">Локация</h4>
+                            <p class="text-xs text-white">Мед. Отсек / Полевой госпиталь</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderPersonnel() {
+            const container = document.getElementById('personnel-grid');
+            PERSONNEL_DATA.forEach(p => {
+                const card = document.createElement('div');
+                card.className = `glass-panel p-6 rounded-xl border-t-4 border-${p.color}-500 hover:scale-[1.02] transition-transform`;
+                card.innerHTML = `
+                    <div class="mb-4">
+                        <span class="text-[10px] font-bold text-slate-500 uppercase mono">Допуск: ${p.limit}</span>
+                        <h3 class="text-xl font-bold mono text-white">${p.rank}</h3>
+                    </div>
+                    <ul class="space-y-2">
+                        ${p.duties.map(d => `<li class="text-xs text-slate-400 flex items-start gap-2">
+                            <span class="text-blue-500 mt-1">▹</span> <span>${d}</span>
+                        </li>`).join('')}
+                    </ul>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderSurgeryMenu() {
+            const menu = document.getElementById('surgery-menu');
+            SURGERY_DATA.forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left p-4 glass-panel hover:bg-blue-600/20 rounded-lg text-xs mono uppercase font-bold tracking-tighter border-l-2 border-transparent hover:border-blue-500 transition-all';
+                btn.innerText = item.title;
+                btn.onclick = () => {
+                    document.querySelectorAll('#surgery-menu button').forEach(b => b.classList.remove('bg-blue-600/20', 'border-blue-500'));
+                    btn.classList.add('bg-blue-600/20', 'border-blue-500');
+                    showSurgeryDetail(item);
+                };
+                menu.appendChild(btn);
+            });
+        }
+
+        function showSurgeryDetail(item) {
+            const viewer = document.getElementById('surgery-viewer');
+            viewer.innerHTML = `
+                <div class="fade-in">
+                    <div class="flex items-center justify-between mb-8 border-b border-slate-700 pb-4">
+                        <h2 class="text-2xl font-bold mono uppercase italic text-blue-400">${item.title}</h2>
+                        <span class="text-[10px] bg-blue-900 text-blue-200 px-2 py-1 rounded">ХИРУРГИЧЕСКИЙ ПРОТОКОЛ</span>
+                    </div>
+                    <div class="text-slate-300">
+                        ${item.content}
+                    </div>
+                    <div class="mt-8 pt-4 border-t border-slate-800 flex justify-between items-center text-[10px] mono text-slate-600">
+                        <span>ТРЕБУЕТСЯ: СТ. СПЕЦИАЛИСТ</span>
+                        <span>ДАТАПАД Г-01</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderPharma() {
+            const container = document.getElementById('pharma-grid');
+            PHARMA_DATA.forEach(drug => {
+                const card = document.createElement('div');
+                card.className = 'p-4 glass-panel rounded-lg flex flex-col gap-1 border-l-2 border-blue-500/50';
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <h4 class="font-bold text-sm mono text-white">${drug.name}</h4>
+                        <span class="text-[9px] font-bold text-blue-400 bg-blue-900/30 px-1.5 py-0.5 rounded uppercase">${drug.cat}</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500">${drug.desc}</p>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderBinds() {
+            const container = document.getElementById('binds-list');
+            BINDS.forEach(b => {
+                const div = document.createElement('div');
+                div.className = 'group flex flex-col gap-2 p-3 bg-slate-800/30 rounded border border-slate-700 hover:border-red-500/50 transition-colors cursor-pointer';
+                div.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] mono font-bold text-red-500 uppercase">${b.label}</span>
+                        <span class="text-[8px] text-slate-600 uppercase">Click to copy</span>
+                    </div>
+                    <code class="text-xs text-slate-300 font-mono bg-black/40 p-2 rounded">${b.cmd}</code>
+                `;
+                div.onclick = () => {
+                    const el = document.createElement('textarea');
+                    el.value = `bind * "say ${b.cmd}"`;
+                    document.body.appendChild(el);
+                    el.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(el);
+                    
+                    const label = div.querySelector('span');
+                    const old = label.innerText;
+                    label.innerText = 'СКОПИРОВАНО!';
+                    setTimeout(() => label.innerText = old, 1500);
+                };
+                container.appendChild(div);
+            });
+        }
+
+        function renderCharter() {
+            const rules = [
+                'Оказывать помощь независимо от ранга и личных отношений.',
+                'Соблюдать строгую дисциплину.',
+                'Оказывать помощь по степени необходимости (Триаж).',
+                'Не покидать пост без разрешения.',
+                'Соблюдать врачебную тайну.',
+                'Уметь обращаться с вооружением и мед. оборудованием.',
+                'Спасти жизнь пациента любой ценой.',
+                'Не причинять вред пациенту.',
+                'Не проводить операции без должной специализации.'
+            ];
+            const container = document.getElementById('charter-text');
+            rules.forEach((rule, idx) => {
+                const p = document.createElement('p');
+                p.className = 'flex items-baseline gap-4 text-sm';
+                p.innerHTML = `<span class="mono font-bold text-blue-500">${String(idx+1).padStart(2, '0')}.</span> <span>${rule}</span>`;
+                container.appendChild(p);
+            });
+        }
+
+        window.onload = init;
+
+    </script>
+</body>
+</html>
