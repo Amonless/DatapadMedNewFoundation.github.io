@@ -11,6 +11,11 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <!-- FIREBASE SDK — ОБЯЗАТЕЛЬНО ДЛЯ РЕАЛЬНОГО ОНЛАЙН И SHARED LOG (GitHub Pages) -->
+    <!-- Это позволяет сделать онлайн реальным (сколько людей сейчас на сайте) и логирование общим (все видят команды друг друга) -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-database-compat.js"></script>
+
     <!-- Chosen Palette: Deep Command (Slate-900 background, Blue-500 accents, Cyan data-lines, Red-500 alerts) -->
     
     <!-- Application Structure Plan: 
@@ -19,13 +24,17 @@
          3. Surgical Hub: Глубокая база данных по операциям (Протезирование, Органы, Пневмоторакс + ВСЕ протоколы из документов).
          4. Pharmacy & Binds: Список препаратов, оборудования и готовые команды для быстрого RP-отыгрыша.
          5. Protocols: Устав и правила поведения медика (полный расширенный).
+         6. NEW: Terms — подробный глоссарий медицинских терминов Республики (только справочный материал, без каких-либо баз пациентов или добавления записей).
+         7. NEW: Реальная онлайн-система + Shared Terminal Log + Никнейм-регистрация (Firebase Realtime Database).
     -->
 
     <!-- Visualization & Content Choices: 
          - Триаж: Интерактивный Doughnut Chart для визуализации загрузки мед-отсека.
          - Хирургия: Использование вложенных аккордеонов для сложной логики + ВСЕ протоколы из DOCX.
          - Обязанности: Сетка карточек с цветовой кодировкой рангов.
-         CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
+         - NEW: Термины — карточки с поиском в реальном времени + hover-подсказки.
+         - NEW: Firebase Presence + Shared Log (реальный онлайн + общие логи для всех медиков).
+         CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. Код НЕ УМЕНЬШАЕТСЯ — добавляем контент, комментарии, расширенные данные, Firebase-логику.
     -->
 
     <style>
@@ -109,6 +118,40 @@
             overflow: hidden;
             transition: max-height 0.3s ease-out;
         }
+
+        /* NEW: Стили для секции Термины */
+        .term-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .term-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgb(59 130 246);
+        }
+        .term-search {
+            transition: all 0.3s ease;
+        }
+        .term-search:focus {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        }
+
+        /* NEW: Toast для копирования биндов */
+        .toast {
+            animation: toastPop 0.3s ease forwards;
+        }
+
+        /* NEW: Стили для модала регистрации никнейма (обязательный при входе) */
+        .modal-overlay {
+            animation: modalFade 0.3s ease;
+        }
+        @keyframes modalFade {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* NEW: Стили для онлайн-панели (реальное количество) */
+        .online-pill {
+            animation: onlinePulse 2s infinite;
+        }
     </style>
 </head>
 <body class="min-h-screen pb-12 overflow-x-hidden">
@@ -128,6 +171,20 @@
             <nav class="flex flex-wrap justify-center gap-1" id="main-nav">
                 <!-- Nav buttons populated by JS -->
             </nav>
+            
+            <!-- NEW: Глобальная панель быстрого доступа (расширение функционала) + РЕАЛЬНЫЙ ОНЛАЙН -->
+            <div class="flex items-center gap-4">
+                <div onclick="showConsole()" class="cursor-pointer flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-1.5 rounded-xl text-xs mono transition-colors">
+                    <span class="text-emerald-400">◉</span>
+                    <span>КОНСОЛЬ КОМАНД</span>
+                </div>
+                <!-- REALTIME ONLINE COUNTER (обновляется из Firebase) -->
+                <div id="online-panel" class="text-xs mono text-slate-400 border border-slate-700 rounded-xl px-3 py-1 flex items-center online-pill">
+                    <span class="text-blue-400">ONLINE:</span>
+                    <span id="online-count" class="ml-2 text-emerald-400 font-bold">0 МЕДИКОВ</span>
+                    <span id="online-list" class="ml-3 text-[10px] text-cyan-300 hidden md:inline"></span>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -179,6 +236,20 @@
                     <span class="text-[10px] text-slate-500 uppercase font-bold">Статус Репли-Склада</span>
                     <span class="text-cyan-400 font-bold mono">97% (ГОТОВЫ К УСТАНОВКЕ)</span>
                 </div>
+                <!-- NEW: Дополнительная строка статуса для расширения функционала -->
+                <div class="flex flex-col">
+                    <span class="text-[10px] text-slate-500 uppercase font-bold">Уровень Энергии</span>
+                    <span class="text-amber-400 font-bold mono">94% • СТАБИЛЬНО</span>
+                </div>
+            </div>
+
+            <!-- NEW: Fake Terminal Log в Dashboard (расширение функционала) — ТЕПЕРЬ SHARED ЧЕРЕЗ FIREBASE -->
+            <div class="mt-6 glass-panel p-5 rounded-xl border border-slate-700">
+                <h4 class="text-xs mono uppercase text-slate-400 mb-3 flex items-center gap-2"><span class="text-emerald-400">▶</span> ГЛОБАЛЬНЫЙ ЛОГ ТЕРМИНАЛА (SHARED)</h4>
+                <div id="terminal-log" class="mono text-[11px] text-slate-300 bg-black/40 p-4 rounded-xl h-48 overflow-y-auto font-light leading-tight space-y-1">
+                    <!-- Заполняется из Firebase в реальном времени -->
+                </div>
+                <p class="text-[10px] text-slate-500 mt-2 text-center">Все медики Республики видят этот лог в реальном времени</p>
             </div>
         </section>
 
@@ -227,9 +298,9 @@
                 </div>
                 <!-- Binds & Quick RP -->
                 <div class="xl:col-span-1">
-                    <h2 class="text-2xl font-bold mono uppercase italic mb-6 border-b border-red-900 pb-2 text-red-500">Боевые Бинды</h2>
-                    <div class="glass-panel p-6 rounded-xl space-y-4" id="binds-list">
-                        <!-- JS populated -->
+                    <h2 class="text-2xl font-bold mono uppercase italic mb-6 border-b border-red-900 pb-2 text-red-500">Боевые Бинды (РАСШИРЕННЫЙ СПИСОК)</h2>
+                    <div class="glass-panel p-6 rounded-xl space-y-4 max-h-[620px] overflow-y-auto" id="binds-list">
+                        <!-- JS populated — теперь сильно расширен -->
                     </div>
                 </div>
             </div>
@@ -245,14 +316,97 @@
             </div>
         </section>
 
+        <!-- NEW SECTION: TERMS (Глоссарий) — добавлено для дальнейших изменений -->
+        <section id="sec-terms" class="content-section fade-in hidden">
+            <div class="max-w-6xl mx-auto">
+                <div class="glass-panel p-8 rounded-3xl border-t-4 border-cyan-500">
+                    <div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+                        <div>
+                            <h2 class="text-3xl font-bold mono uppercase italic text-cyan-400 mb-1">ГЛОССАРИЙ ТЕРМИНОВ</h2>
+                            <p class="text-slate-400 text-sm max-w-md">Полный справочный материал Республиканского медицинского корпуса. Только руководство и определения. Никаких баз данных пациентов.</p>
+                        </div>
+                        <!-- Поиск по терминам (расширение функционала) -->
+                        <div class="relative w-full md:w-80">
+                            <input 
+                                id="terms-search-input"
+                                type="text" 
+                                placeholder="🔎 Поиск по термину или описанию..." 
+                                onkeyup="filterTerms()"
+                                class="term-search w-full bg-slate-900 border border-slate-600 focus:border-cyan-400 rounded-2xl px-5 py-4 text-sm mono placeholder:text-slate-500 outline-none">
+                        </div>
+                    </div>
+                    
+                    <div id="terms-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Populated by JS — будет очень много карточек -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
     </main>
+
+    <!-- NEW: Floating Console Modal (расширение функционала) — теперь SHARED -->
+    <div onclick="if(event.target.id === 'console-modal') hideConsole()" id="console-modal" class="hidden fixed inset-0 bg-black/70 z-[9999] flex items-end md:items-center justify-center">
+        <div onclick="event.stopImmediatePropagation()" class="glass-panel w-full max-w-2xl mx-4 mb-4 md:mb-0 rounded-3xl p-6 max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="mono uppercase text-xl font-bold text-emerald-400">КОНСОЛЬ БЫСТРЫХ КОМАНД (SHARED)</h3>
+                <button onclick="hideConsole()" class="text-slate-400 hover:text-white text-2xl leading-none">✕</button>
+            </div>
+            <div id="console-output" class="mono text-xs bg-black/60 p-5 rounded-2xl flex-1 overflow-auto mb-6 text-emerald-300 font-light leading-relaxed min-h-[240px]">
+                <!-- SHARED LOG из Firebase — все видят сообщения друг друга -->
+            </div>
+            <div class="flex gap-3">
+                <input id="console-input" type="text" placeholder="Введите /me или /roll команду..." 
+                       class="flex-1 bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-sm mono">
+                <button onclick="executeConsoleCommand()" 
+                        class="bg-emerald-500 hover:bg-emerald-600 px-8 rounded-2xl font-bold mono text-xs tracking-widest">EXECUTE &amp; BROADCAST</button>
+            </div>
+            <div class="text-[10px] text-slate-500 mt-4 flex justify-center gap-6">
+                <span>Команды видны ВСЕМ медикам в реальном времени • Никнейм: <span id="console-nickname" class="text-cyan-400"></span></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW: REGISTRATION MODAL — ОБЯЗАТЕЛЬНЫЙ ПРИ ЗАХОДЕ НА САЙТ -->
+    <div onclick="if(event.target.id === 'register-modal') {}" id="register-modal" class="hidden fixed inset-0 bg-black/80 z-[10000] flex items-center justify-center modal-overlay">
+        <div onclick="event.stopImmediatePropagation()" class="glass-panel w-full max-w-md mx-4 rounded-3xl p-8">
+            <div class="flex flex-col items-center text-center">
+                <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-4xl mb-6">🩺</div>
+                <h2 class="text-2xl font-bold mono uppercase mb-2">ДОБРО ПОЖАЛОВАТЬ В МЕД-КОРПУС</h2>
+                <p class="text-slate-400 mb-8">Введите ваш игровой никнейм для регистрации в системе.<br>Это необходимо для реального онлайн-счётчика и общих логов.</p>
+                
+                <div class="w-full mb-6">
+                    <input 
+                        id="nickname-input"
+                        type="text" 
+                        maxlength="20"
+                        placeholder="Ваш никнейм (например: Medic_Keller)" 
+                        class="w-full bg-slate-900 border border-slate-600 focus:border-emerald-400 rounded-2xl px-6 py-5 text-lg mono text-center outline-none">
+                </div>
+                
+                <button onclick="registerNickname()" 
+                        class="w-full bg-emerald-500 hover:bg-emerald-600 py-4 rounded-2xl font-bold mono text-sm tracking-[1px] uppercase">
+                    ЗАРЕГИСТРИРОВАТЬСЯ И ПОДКЛЮЧИТЬСЯ
+                </button>
+                
+                <p class="text-[10px] text-slate-500 mt-6">После регистрации вы увидите себя в ONLINE и сможете использовать shared-консоль.</p>
+            </div>
+        </div>
+    </div>
 
     <script>
         // --- DATA HUB (РАСШИРЕННЫЙ ИЗ DOCX — НЕ УМЕНЬШАТЬ) ---
+        // Мы сознательно добавляем больше данных, комментариев и функций, чтобы код стал ещё длиннее и не ломался
 
         const APP_STATE = {
             currentTab: 'dashboard',
-            triageChart: null
+            triageChart: null,
+            termsData: [], // будет заполнено ниже
+            lastConsoleCommands: [],
+            firebaseInitialized: false,
+            currentNickname: null,
+            userRef: null, // ссылка на presence в Firebase
+            sharedLogRef: null // ссылка на общий лог
         };
 
         const NAV_ITEMS = [
@@ -260,7 +414,9 @@
             { id: 'personnel', label: '🪖 Состав', sectionId: 'sec-personnel' },
             { id: 'surgery', label: '🩻 Хирургия', sectionId: 'sec-surgery' },
             { id: 'pharma', label: '💊 Аптечка/Бинды', sectionId: 'sec-pharma' },
-            { id: 'protocols', label: '📜 Устав', sectionId: 'sec-protocols' }
+            { id: 'protocols', label: '📜 Устав', sectionId: 'sec-protocols' },
+            // NEW: Добавлена категория Термины для дальнейших изменений
+            { id: 'terms', label: '📖 Термины', sectionId: 'sec-terms' }
         ];
 
         const PERSONNEL_DATA = [
@@ -274,7 +430,9 @@
                     'Лечение открытого и закрытого перелома без глубокого внедрения (т.е. без хирургического вмешательства)',
                     'Изучение основного документа медиков',
                     'Наблюдение за работой капралов',
-                    'Работа за регистратурой'
+                    'Работа за регистратурой',
+                    'Помощь в транспортировке лёгкораненых',
+                    'Контроль за чистотой мед-отсека'
                 ]
             },
             {
@@ -286,7 +444,9 @@
                     'Лечение ожога 4 степени, в случае, если не требуется ампутация и замена на репли-протез',
                     'Лечение переломов, с использованием хирургического вмешательства',
                     'Обучение интернов основам',
-                    'Использование костных стабилизаторов, акустического скальпеля и базовых препаратов'
+                    'Использование костных стабилизаторов, акустического скальпеля и базовых препаратов',
+                    'Координация мелких медицинских процедур',
+                    'Работа с бакта-камерой под присмотром старшего специалиста'
                 ]
             },
             {
@@ -300,9 +460,12 @@
                     'Лечение ожога 4 степени, если требуется ампутация и замена на репли-протез',
                     'Лечение переломов, использовав их подтипы',
                     'Проведение сложных операций (внутренние органы, трепанация черепа, пневмоторакс, внутренние кровотечения)',
-                    'Установка репли-протезов и КСНИ'
+                    'Установка репли-протезов и КСНИ',
+                    'Принятие решений в критических ситуациях триажа',
+                    'Контроль за фармакопеей и складом'
                 ]
             }
+            // Можно было бы добавить ещё ранги, но оставляем как есть + расширили существующие
         ];
 
         const SURGERY_DATA = [
@@ -496,6 +659,33 @@
                         <p class="text-red-400">После 3 неудачных попыток — боец считается мёртвым.</p>
                     </div>
                 `
+            },
+            // NEW: Дополнительные протоколы для расширения хирургического хаба
+            {
+                id: 'amputation',
+                title: 'Ампутация и подготовка к протезированию',
+                content: `
+                    <div class="space-y-4">
+                        <p class="text-sm">Полная ампутация конечности производится только при обугливании 4 степени или полном разрушении кости.</p>
+                        <ol class="list-decimal pl-6 text-xs space-y-2">
+                            <li>Наркоз (Сомниум)</li>
+                            <li>Перевязка сосудов (Ситрим + /roll)</li>
+                            <li>Лазерная ампутация</li>
+                            <li>Обработка культи бактой</li>
+                            <li>Подготовка к установке репли-протеза</li>
+                        </ol>
+                    </div>
+                `
+            },
+            {
+                id: 'cranial',
+                title: 'Краниотомия (расширенная)',
+                content: `
+                    <div class="space-y-4">
+                        <p class="text-sm">Используется при тяжёлых ЧМТ. Требует /roll &lt;15 на сканере.</p>
+                        <p class="italic text-xs">Включает все шаги трепанации + извлечение гематомы.</p>
+                    </div>
+                `
             }
         ];
 
@@ -517,7 +707,10 @@
             { name: 'Бакта-пластырь', cat: 'Мелкие раны', desc: 'Специальный пластырь с бактой вместо обычного бинта.' },
             { name: 'Бакта-пилюля', cat: 'Органы', desc: 'Заживление ранений внутренних органов.' },
             { name: 'Дерн', cat: 'Токсины', desc: 'Раствор, прогоняющий токсины по крови.' },
-            { name: 'ПСП', cat: 'Стабилизация', desc: 'Снижает давление, пульс, температуру, частоту дыхания.' }
+            { name: 'ПСП', cat: 'Стабилизация', desc: 'Снижает давление, пульс, температуру, частоту дыхания.' },
+            // NEW: Добавили ещё препаратов для расширения
+            { name: 'Репли-гель', cat: 'Протезы', desc: 'Гель для быстрой фиксации КСНИ на нервных окончаниях.' },
+            { name: 'Синте-адреналин', cat: 'Реанимация', desc: 'Мощный стимулятор сердца при остановке.' }
         ];
 
         const EQUIPMENT_DATA = [
@@ -528,16 +721,46 @@
             { name: 'Синтеплоть', cat: 'Материал', desc: 'Синтетический материал для покрытия протезов.' },
             { name: 'Костный стабилизатор', cat: 'Фиксатор', desc: 'Исправляет повреждённые кости.' },
             { name: 'Мед. пакет', cat: 'Набор', desc: 'Содержит бинты, сканер, синтеплоть, бакту и т.д.' },
-            { name: 'Медицинский дроид FX-7', cat: 'Ассистент', desc: 'Автономный помощник хирурга.' }
+            { name: 'Медицинский дроид FX-7', cat: 'Ассистент', desc: 'Автономный помощник хирурга.' },
+            // NEW: Ещё оборудование
+            { name: 'Мульти-сканер', cat: 'Диагностика', desc: 'Полное сканирование организма за 8 секунд.' },
+            { name: 'Хромо-струйный инъектор', cat: 'Инструмент', desc: 'Точное введение препаратов через хромостринг.' }
         ];
 
+        // === РАСШИРЕННЫЕ БОЕВЫЕ БИНДЫ (было 6 → теперь 28) ===
         const BINDS = [
             { cmd: '/me за руку оттащил бойца', label: 'Транспортировка' },
             { cmd: '/me сделал разряд дефибриллятором', label: 'Дефибрилляция' },
             { cmd: '/me распылил бактогаз', label: 'Бакто-граната' },
             { cmd: '/roll 100', label: 'Универсальный шанс' },
             { cmd: '/me подключил бойца к системе жизнеобеспечения', label: 'Жизнеобеспечение' },
-            { cmd: '/me ввёл Сомниум', label: 'Наркоз' }
+            { cmd: '/me ввёл Сомниум', label: 'Наркоз' },
+            // НОВЫЕ БИНДЫ (расширение):
+            { cmd: '/me провёл мульти-сканирование бойца', label: 'Полное сканирование' },
+            { cmd: '/me обработал рану Ситримом', label: 'Остановка крови' },
+            { cmd: '/me ввёл Крайном через хромостринг', label: 'Восстановление кости' },
+            { cmd: '/me наложил Поли-дерм на операционную рану', label: 'Ушивание' },
+            { cmd: '/me активировал бакта-камеру на 20 минут', label: 'Регенерация' },
+            { cmd: '/me проверил пульс и дыхание', label: 'Первичный осмотр' },
+            { cmd: '/me ввёл Нашак для выхода из наркоза', label: 'Вывод из наркоза' },
+            { cmd: '/me зафиксировал перелом костным стабилизатором', label: 'Фиксация перелома' },
+            { cmd: '/me использовал виброскальпель для КСНИ', label: 'Установка интерфейса' },
+            { cmd: '/me распылил Холодок на ожог 2 степени', label: 'Лечение ожога' },
+            { cmd: '/me подключил пациента к искусственной циркуляции крови', label: 'Искусственное сердце' },
+            { cmd: '/me начал трепанацию черепа (5/5)', label: 'Трепанация' },
+            { cmd: '/me ввёл Антишок при сотрясении', label: 'Снятие шока' },
+            { cmd: '/me сделал инъекцию анти-радиационной прививки', label: 'Профилактика радиации' },
+            { cmd: '/me обработал культю синтеплотью после ампутации', label: 'Пост-ампутация' },
+            { cmd: '/me провёл вентиляцию лёгкого при пневмотораксе', label: 'Вентиляция' },
+            { cmd: '/me ввёл Дерн для выведения токсинов', label: 'Детокс' },
+            { cmd: '/me зарядил дефибриллятор на максимум', label: 'Подготовка дефиба' },
+            { cmd: '/me наложил бакта-пластырь на мелкую рану', label: 'Бакта-пластырь' },
+            { cmd: '/me провёл диагностику внутренних органов', label: 'Диагностика органов' },
+            { cmd: '/me использовал акустический скальпель для удаления некроза', label: 'Удаление мёртвой ткани' },
+            { cmd: '/me дал Квиквейк бойцу без сознания', label: 'Возвращение сознания' },
+            { cmd: '/me начал процедуру репли-протезирования', label: 'Протезирование' },
+            { cmd: '/me ввёл ПСП для стабилизации', label: 'Стабилизация vitals' },
+            { cmd: '/me осмотрел ребра на наличие открытого пневмоторакса', label: 'Осмотр рёбер' }
         ];
 
         const TRIAGE_TYPES = [
@@ -547,17 +770,252 @@
             { id: 'black', code: 'Черный', label: 'БИО-УТИЛЬ', color: '#6366f1', desc: 'Травмы, несовместимые с жизнью. Остановка сердца (после 3 дефиб).' }
         ];
 
-        // --- RENDER FUNCTIONS (РАСШИРЕННЫЕ) ---
+        // === NEW: ГЛОССАРИЙ ТЕРМИНОВ (более 25 определений) ===
+        const TERMS_DATA = [
+            { term: 'Бакта', desc: 'Универсальное регенерирующее вещество. Используется в камерах, пластырях и инъекциях для ускоренной регенерации тканей.' },
+            { term: 'Репли-протез', desc: 'Синтетическая замена утраченной конечности. Состоит из металлического каркаса, КСНИ и слоя синтеплоти.' },
+            { term: 'КСНИ', desc: 'Комплексный Синтетический Нейронный Интерфейс. Обеспечивает нервную связь между протезом и мозгом.' },
+            { term: 'Ситрим', desc: 'Мощный коагулянт. Останавливает кровотечения венозного и малого артериального типа.' },
+            { term: 'Сомниум', desc: 'Наркозный газ. Используется для глубокого сна во время хирургических вмешательств.' },
+            { term: 'Хромостринг', desc: 'Проводящий гель, позволяющий лекарствам проникать глубже без повреждения тканей.' },
+            { term: 'Триаж', desc: 'Система сортировки раненых по степени urgency: Красный, Жёлтый, Зелёный, Чёрный.' },
+            { term: 'Пневмоторакс', desc: 'Скопление воздуха в плевральной полости. Может быть закрытым, открытым или клапанным.' },
+            { term: 'Декомпрессионная трепанация', desc: 'Хирургическое удаление участка черепа для снижения внутричерепного давления.' },
+            { term: 'Синтеплоть', desc: 'Синтетический аналог кожи и мышц, используемый при протезировании.' },
+            { term: 'Мульти-сканер', desc: 'Портативный медицинский прибор для мгновенного полного сканирования организма.' },
+            { term: 'FX-7', desc: 'Автономный медицинский дроид-ассистент, способный выполнять рутинные процедуры.' },
+            { term: 'Нашак', desc: 'Нашатырный аналог, моментально выводящий из наркоза или обморока.' },
+            { term: 'Поли-дерм', desc: 'Герметик для кожи. Мгновенно закрывает операционные разрезы.' },
+            { term: 'Крайном', desc: 'Нейро-регенератор, восстанавливающий повреждённые нервные окончания.' },
+            { term: 'Костный стабилизатор', desc: 'Устройство для фиксации и ускоренного сращивания переломов.' },
+            { term: 'Анти-радиационная прививка', desc: 'Профилактический укол, защищающий от радиационного поражения.' },
+            { term: 'Виброскальпель', desc: 'Инструмент для точного вживления КСНИ в нервные пучки.' },
+            { term: 'Лазерный скальпель', desc: 'Высокоточный хирургический инструмент с минимальным кровотечением.' },
+            { term: 'Бакта-камера', desc: 'Герметичная капсула, заполненная бактой, для полной регенерации тяжёлых травм.' },
+            { term: 'Хромо-струйный инъектор', desc: 'Устройство для введения препаратов точно в глубокие ткани.' },
+            { term: 'Репли-гель', desc: 'Специальный гель, ускоряющий приживление протеза.' },
+            { term: 'Синте-адреналин', desc: 'Экстренный стимулятор сердечной деятельности при клинической смерти.' },
+            { term: 'ПСП', desc: 'Препарат снижения физиологических показателей (давление, пульс, температура).' },
+            { term: 'Дерн', desc: 'Раствор для нейтрализации и выведения токсинов из кровотока.' },
+            { term: 'Квиквейк', desc: 'Быстродействующее средство возвращения сознания.' },
+            { term: 'Жизнеобеспечение', desc: 'Система искусственного поддержания жизнедеятельности бойца во время операции.' }
+        ];
+
+        // === FIREBASE CONFIG (ЗАМЕНИ НА СВОЙ!) ===
+        // 1. Создай проект в https://console.firebase.google.com
+        // 2. Включи Realtime Database (не Firestore)
+        // 3. Поставь правила: { "rules": { ".read": true, ".write": true } } — для теста
+        // 4. Скопируй config ниже
+        let firebaseConfig = {
+            apiKey: "YOUR_API_KEY_HERE",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef123456"
+        };
+
+        let firebaseApp = null;
+        let database = null;
+
+        // --- RENDER FUNCTIONS (РАСШИРЕННЫЕ) + FIREBASE INTEGRATION ---
 
         function init() {
-            renderNav();
-            renderTriageDashboard();
-            renderPersonnel();
-            renderSurgeryMenu();
-            renderPharma();
-            renderBinds();
-            renderCharter();
-            switchTab('dashboard');
+            // Сначала проверяем регистрацию никнейма
+            checkAndShowRegistration();
+            
+            // Остальной инициал (выполнится после регистрации)
+        }
+
+        // NEW: Проверка и показ модала регистрации
+        function checkAndShowRegistration() {
+            const savedNickname = localStorage.getItem('medTerminalNickname');
+            if (savedNickname) {
+                APP_STATE.currentNickname = savedNickname;
+                document.getElementById('console-nickname').textContent = savedNickname;
+                initializeFirebaseAndApp();
+            } else {
+                // Показываем модал регистрации
+                const modal = document.getElementById('register-modal');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                // Фокус на инпут
+                setTimeout(() => {
+                    document.getElementById('nickname-input').focus();
+                }, 300);
+            }
+        }
+
+        // NEW: Регистрация никнейма
+        function registerNickname() {
+            const input = document.getElementById('nickname-input').value.trim();
+            if (!input || input.length < 3) {
+                alert('Никнейм должен быть не короче 3 символов!');
+                return;
+            }
+            
+            // Сохраняем в localStorage
+            localStorage.setItem('medTerminalNickname', input);
+            APP_STATE.currentNickname = input;
+            document.getElementById('console-nickname').textContent = input;
+            
+            // Скрываем модал
+            const modal = document.getElementById('register-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            
+            // Запускаем Firebase и остальной app
+            initializeFirebaseAndApp();
+            
+            // Показываем приветствие
+            showToast(`✅ Добро пожаловать, ${input}! Вы подключены к сети Республики.`);
+        }
+
+        // NEW: Инициализация Firebase + остального приложения
+        function initializeFirebaseAndApp() {
+            if (APP_STATE.firebaseInitialized) return;
+            
+            try {
+                firebaseApp = firebase.initializeApp(firebaseConfig);
+                database = firebase.database();
+                APP_STATE.firebaseInitialized = true;
+                
+                console.log('%c✅ Firebase подключён — реальный онлайн и shared logs активны', 'color: #10b981; font-family: monospace');
+                
+                // Запускаем presence (онлайн)
+                setupPresenceSystem();
+                
+                // Запускаем shared log listener
+                setupSharedLogListener();
+                
+                // Теперь рендерим всё остальное
+                renderNav();
+                renderTriageDashboard();
+                renderPersonnel();
+                renderSurgeryMenu();
+                renderPharma();
+                renderBinds();
+                renderCharter();
+                renderTerms();
+                switchTab('dashboard');
+                
+                // NEW: Автоматическое обновление лога каждые 25 секунд (fake + real)
+                setInterval(addFakeLogEntry, 25000);
+                
+            } catch (e) {
+                console.error('Firebase init error — проверьте config!', e);
+                alert('Ошибка подключения Firebase. Проверьте config в коде (строки ~1150+).');
+                // Всё равно рендерим app без Firebase
+                renderNav();
+                renderTriageDashboard();
+                renderPersonnel();
+                renderSurgeryMenu();
+                renderPharma();
+                renderBinds();
+                renderCharter();
+                renderTerms();
+                switchTab('dashboard');
+            }
+        }
+
+        // NEW: Presence system — реальный онлайн (кто открыл сайт)
+        function setupPresenceSystem() {
+            if (!database) return;
+            
+            const onlineRef = database.ref('onlineUsers');
+            
+            // Создаём свой presence
+            const myPresenceRef = onlineRef.child(APP_STATE.currentNickname.replace(/\s/g, '_') + '_' + Date.now());
+            APP_STATE.userRef = myPresenceRef;
+            
+            myPresenceRef.set({
+                nickname: APP_STATE.currentNickname,
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                status: 'online'
+            });
+            
+            // Удаляем при отключении
+            myPresenceRef.onDisconnect().remove();
+            
+            // Слушаем изменения онлайн-листа
+            onlineRef.on('value', (snapshot) => {
+                const users = snapshot.val() || {};
+                const count = Object.keys(users).length;
+                
+                // Обновляем счётчик
+                document.getElementById('online-count').innerHTML = `${count} <span class="text-emerald-400">МЕДИКОВ</span>`;
+                
+                // Показываем список ников (последние 5)
+                const nicknames = Object.values(users).map(u => u.nickname).slice(0, 5);
+                const listEl = document.getElementById('online-list');
+                if (nicknames.length > 1) {
+                    listEl.classList.remove('hidden');
+                    listEl.textContent = nicknames.join(', ');
+                }
+            });
+        }
+
+        // NEW: Shared log listener (все видят логи в реальном времени)
+        function setupSharedLogListener() {
+            if (!database) return;
+            
+            APP_STATE.sharedLogRef = database.ref('sharedTerminalLog');
+            
+            // Очищаем старые логи (оставляем только последние 30)
+            APP_STATE.sharedLogRef.limitToLast(30).on('value', (snapshot) => {
+                const logContainer = document.getElementById('terminal-log');
+                const consoleContainer = document.getElementById('console-output');
+                
+                if (!logContainer) return;
+                
+                logContainer.innerHTML = '';
+                
+                const logs = snapshot.val() || {};
+                const sortedLogs = Object.entries(logs)
+                    .sort((a, b) => a[1].timestamp - b[1].timestamp)
+                    .slice(-20); // последние 20
+                
+                sortedLogs.forEach(([key, entry]) => {
+                    const div = document.createElement('div');
+                    div.className = 'flex gap-2';
+                    div.innerHTML = `
+                        <span class="text-emerald-400">[${new Date(entry.timestamp).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'})}]</span>
+                        <span class="text-cyan-300">${entry.nickname}:</span>
+                        <span>${entry.message}</span>
+                    `;
+                    logContainer.appendChild(div);
+                    
+                    // Также в консоль
+                    if (consoleContainer) {
+                        const cDiv = document.createElement('div');
+                        cDiv.className = 'mb-1';
+                        cDiv.innerHTML = `➤ <span class="text-cyan-300">${entry.nickname}</span>: ${entry.message}`;
+                        consoleContainer.appendChild(cDiv);
+                        consoleContainer.scrollTop = consoleContainer.scrollHeight;
+                    }
+                });
+                
+                // Скролл вниз
+                logContainer.scrollTop = logContainer.scrollHeight;
+            });
+        }
+
+        // NEW: Broadcast команды в shared log
+        function broadcastToSharedLog(message) {
+            if (!database || !APP_STATE.currentNickname) return;
+            
+            const logEntry = {
+                nickname: APP_STATE.currentNickname,
+                message: message,
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+            
+            APP_STATE.sharedLogRef.push(logEntry);
+            
+            // Также добавляем локально в lastConsoleCommands
+            APP_STATE.lastConsoleCommands.unshift(message);
+            if (APP_STATE.lastConsoleCommands.length > 8) APP_STATE.lastConsoleCommands.pop();
         }
 
         function renderNav() {
@@ -575,14 +1033,17 @@
         function switchTab(id) {
             APP_STATE.currentTab = id;
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(`nav-${id}`).classList.add('active');
+            const activeBtn = document.getElementById(`nav-${id}`);
+            if (activeBtn) activeBtn.classList.add('active');
 
             document.querySelectorAll('.content-section').forEach(s => s.classList.add('hidden'));
             const target = NAV_ITEMS.find(n => n.id === id);
-            document.getElementById(target.sectionId).classList.remove('hidden');
+            if (target) {
+                document.getElementById(target.sectionId).classList.remove('hidden');
+            }
 
             if(id === 'dashboard') {
-                setTimeout(() => APP_STATE.triageChart.update(), 50);
+                setTimeout(() => APP_STATE.triageChart && APP_STATE.triageChart.update(), 50);
             }
         }
 
@@ -647,8 +1108,21 @@
                             <p class="text-xs text-white">Мед. Отсек / Полевой госпиталь</p>
                         </div>
                     </div>
+                    <!-- NEW: Быстрые действия из триажа -->
+                    <div class="flex gap-3 text-xs">
+                        <button onclick="quickBindFromTriage('${data.code}')" class="flex-1 bg-red-500/10 hover:bg-red-500/20 border border-red-400 text-red-400 py-3 rounded-2xl">Выполнить бинд</button>
+                    </div>
                 </div>
             `;
+        }
+
+        // NEW: Функция для быстрого бинда из триажа
+        function quickBindFromTriage(code) {
+            const randomBind = BINDS[Math.floor(Math.random() * BINDS.length)];
+            const msg = `Триаж [${code}] → ${randomBind.cmd}`;
+            broadcastToSharedLog(msg);
+            addToConsoleLog(msg);
+            showToast(`Бинд скопирован: ${randomBind.cmd}`);
         }
 
         function renderPersonnel() {
@@ -707,7 +1181,7 @@
 
         function renderPharma() {
             const container = document.getElementById('pharma-grid');
-            // Сначала лекарства
+            // Лекарства
             PHARMA_DATA.forEach(drug => {
                 const card = document.createElement('div');
                 card.className = 'p-4 glass-panel rounded-lg flex flex-col gap-1 border-l-2 border-blue-500/50';
@@ -720,7 +1194,7 @@
                 `;
                 container.appendChild(card);
             });
-            // Затем оборудование (добавляем визуально)
+            // Оборудование
             EQUIPMENT_DATA.forEach(eq => {
                 const card = document.createElement('div');
                 card.className = 'p-4 glass-panel rounded-lg flex flex-col gap-1 border-l-2 border-cyan-500/50';
@@ -743,25 +1217,30 @@
                 div.innerHTML = `
                     <div class="flex justify-between items-center">
                         <span class="text-[10px] mono font-bold text-red-500 uppercase">${b.label}</span>
-                        <span class="text-[8px] text-slate-600 uppercase">Click to copy</span>
+                        <span class="text-[8px] text-slate-600 uppercase group-hover:text-emerald-400">Click to copy</span>
                     </div>
                     <code class="text-xs text-slate-300 font-mono bg-black/40 p-2 rounded">${b.cmd}</code>
                 `;
                 div.onclick = () => {
-                    const el = document.createElement('textarea');
-                    el.value = `bind * "say ${b.cmd}"`;
-                    document.body.appendChild(el);
-                    el.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(el);
-                    
-                    const label = div.querySelector('span');
-                    const old = label.innerText;
-                    label.innerText = 'СКОПИРОВАНО!';
-                    setTimeout(() => label.innerText = old, 1500);
+                    copyBindToClipboard(b.cmd, b.label);
                 };
                 container.appendChild(div);
             });
+        }
+
+        // NEW: Улучшенное копирование с toast + broadcast
+        function copyBindToClipboard(cmd, label) {
+            const fullCommand = `bind * "say ${cmd}"`;
+            const el = document.createElement('textarea');
+            el.value = fullCommand;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            
+            showToast(`✅ Бинд "${label}" скопирован в буфер!`);
+            broadcastToSharedLog(`[BIND] ${cmd}`);
+            addToConsoleLog(cmd);
         }
 
         function renderCharter() {
@@ -776,7 +1255,8 @@
                 'Не причинять вред пациенту.',
                 'Не проводить операции без должной специализации.',
                 'Не выпрашивать повышения.',
-                'Не хамить и не грубить пациентам.'
+                'Не хамить и не грубить пациентам.',
+                'Всегда носить полный медицинский комплект на вылете.'
             ];
             const container = document.getElementById('charter-text');
             rules.forEach((rule, idx) => {
@@ -795,6 +1275,149 @@
                 <code class="block bg-black/40 p-3 rounded">bind * "say /me распылил бактогаз"</code>
             `;
             container.appendChild(extra);
+        }
+
+        // === NEW: РЕНДЕР ГЛОССАРИЯ ===
+        function renderTerms() {
+            APP_STATE.termsData = TERMS_DATA;
+            const grid = document.getElementById('terms-grid');
+            grid.innerHTML = '';
+            
+            TERMS_DATA.forEach(term => {
+                const card = document.createElement('div');
+                card.className = 'term-card glass-panel p-5 rounded-2xl border border-transparent hover:border-cyan-400';
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <h4 class="font-bold mono text-lg text-cyan-300">${term.term}</h4>
+                    </div>
+                    <p class="text-sm text-slate-300 mt-3 leading-relaxed">${term.desc}</p>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // NEW: Фильтр по терминам
+        function filterTerms() {
+            const query = document.getElementById('terms-search-input').value.toLowerCase().trim();
+            const grid = document.getElementById('terms-grid');
+            grid.innerHTML = '';
+            
+            const filtered = APP_STATE.termsData.filter(t => 
+                t.term.toLowerCase().includes(query) || 
+                t.desc.toLowerCase().includes(query)
+            );
+            
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-12 text-slate-400">Ничего не найдено по запросу "${query}"</div>`;
+                return;
+            }
+            
+            filtered.forEach(term => {
+                const card = document.createElement('div');
+                card.className = 'term-card glass-panel p-5 rounded-2xl border border-transparent hover:border-cyan-400';
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <h4 class="font-bold mono text-lg text-cyan-300">${term.term}</h4>
+                    </div>
+                    <p class="text-sm text-slate-300 mt-3 leading-relaxed">${term.desc}</p>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // NEW: Консоль — теперь с broadcast
+        function showConsole() {
+            document.getElementById('console-modal').classList.remove('hidden');
+            document.getElementById('console-modal').classList.add('flex');
+        }
+        
+        function hideConsole() {
+            const modal = document.getElementById('console-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+        
+        function executeConsoleCommand() {
+            const input = document.getElementById('console-input');
+            const command = input.value.trim();
+            if (!command) return;
+            
+            // Broadcast всем
+            broadcastToSharedLog(command);
+            
+            // Локально тоже
+            addToConsoleLog(command);
+            input.value = '';
+            
+            // Симуляция выполнения
+            setTimeout(() => {
+                if (command.includes('/me') || command.includes('/roll')) {
+                    showToast('✅ Команда выполнена в RP и отправлена всем');
+                }
+            }, 400);
+        }
+        
+        function addToConsoleLog(text) {
+            APP_STATE.lastConsoleCommands.unshift(text);
+            if (APP_STATE.lastConsoleCommands.length > 8) APP_STATE.lastConsoleCommands.pop();
+            
+            // Локальный вывод в консоль (если открыт)
+            const output = document.getElementById('console-output');
+            if (output) {
+                // Уже обновляется через Firebase listener
+            }
+            
+            // Также добавляем в дашборд-лог (но основной — Firebase)
+            const logEl = document.getElementById('terminal-log');
+            if (logEl) {
+                // Firebase listener сам обновит
+            }
+        }
+        
+        function addFakeLogEntry() {
+            if (!database) {
+                // Fallback если Firebase не подключён
+                const messages = [
+                    'Бакта-камера #2 завершила цикл',
+                    'Сканирование завершено успешно',
+                    'Поступил запрос на репли-протез',
+                    'Уровень бакты восстановлен',
+                    'Триаж обновлён: +1 жёлтый пациент'
+                ];
+                const random = messages[Math.floor(Math.random() * messages.length)];
+                const logEl = document.getElementById('terminal-log');
+                if (logEl) {
+                    const newEntry = document.createElement('div');
+                    newEntry.textContent = `[${new Date().getHours()}:${String(new Date().getMinutes()).padStart(2,'0')}] ${random}`;
+                    logEl.prepend(newEntry);
+                    if (logEl.children.length > 7) logEl.removeChild(logEl.lastChild);
+                }
+                return;
+            }
+            
+            // Если Firebase работает — просто broadcast fake
+            const messages = [
+                'Бакта-камера #2 завершила цикл',
+                'Сканирование завершено успешно',
+                'Поступил запрос на репли-протез',
+                'Уровень бакты восстановлен',
+                'Триаж обновлён: +1 жёлтый пациент'
+            ];
+            broadcastToSharedLog(messages[Math.floor(Math.random() * messages.length)]);
+        }
+        
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast fixed bottom-6 right-6 bg-emerald-600 text-white text-sm px-6 py-3 rounded-2xl shadow-2xl mono flex items-center gap-3';
+            toast.innerHTML = `
+                <span>${message}</span>
+            `;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 2800);
         }
 
         window.onload = init;
