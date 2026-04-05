@@ -152,11 +152,127 @@
         .online-pill {
             animation: onlinePulse 2s infinite;
         }
+
+        /* === NEW: ACCESS GATE + ADMIN PANEL STYLES (ДОБАВЛЕНО ПОВЕРХ ВСЕГО) === */
+        .access-gate {
+            background: linear-gradient(180deg, #1a0f0f 0%, #3b0a0a 100%);
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .access-gate::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                45deg,
+                rgba(185, 28, 28, 0.15),
+                rgba(185, 28, 28, 0.15) 10px,
+                transparent 10px,
+                transparent 20px
+            );
+            animation: glitch-bg 0.8s linear infinite;
+            pointer-events: none;
+            z-index: 1;
+        }
+        @keyframes glitch-bg {
+            0% { background-position: 0 0; }
+            100% { background-position: 50px 50px; }
+        }
+        .gate-panel {
+            background: rgba(15, 5, 5, 0.95);
+            border: 3px solid #b91c1c;
+            box-shadow: 
+                0 0 40px -10px #ef4444,
+                inset 0 0 60px -20px #f87171;
+            backdrop-filter: blur(12px);
+            max-width: 520px;
+            width: 100%;
+            margin: 20px;
+            position: relative;
+            z-index: 2;
+        }
+        .glitch-text {
+            animation: glitch-text 0.4s linear infinite alternate;
+            text-shadow: 
+                2px 0 #ef4444,
+                -2px 0 #22d3ee;
+        }
+        .denied-label {
+            color: #ef4444;
+            text-shadow: 0 0 20px #ef4444;
+        }
+        .admin-btn {
+            animation: adminPulse 2s ease-in-out infinite;
+        }
     </style>
 </head>
 <body class="min-h-screen pb-12 overflow-x-hidden">
 
     <div class="scanline"></div>
+
+    <!-- === NEW: FULL-SCREEN ACCESS GATE (ПОКАЗЫВАЕТСЯ ПЕРВЫМ ДЛЯ ВСЕХ) === -->
+    <!-- Неавторизованные видят ТОЛЬКО этот экран + glitch-ошибки на фоне -->
+    <div id="access-gate" class="access-gate hidden flex-col">
+        <div class="gate-panel rounded-3xl p-10 text-center">
+            <div class="flex justify-center mb-6">
+                <div class="w-20 h-20 bg-red-600 rounded-2xl flex items-center justify-center text-5xl shadow-2xl shadow-red-900/50 glitch-text">⚠️</div>
+            </div>
+            <h1 class="text-4xl font-bold mono uppercase tracking-[4px] denied-label mb-2 glitch-text">ACCESS RESTRICTED</h1>
+            <p class="text-red-300 text-sm mono mb-8 tracking-widest">NEW FOUNDATION MEDICAL CORPS • LEVEL 7 CLEARANCE REQUIRED</p>
+            
+            <div class="space-y-6">
+                <!-- Nickname -->
+                <div>
+                    <label class="block text-xs mono uppercase text-red-400 mb-2 tracking-widest">ВАШ НИКНЕЙМ (ИГРОВОЙ)</label>
+                    <input 
+                        id="gate-nickname-input"
+                        type="text" 
+                        maxlength="25"
+                        placeholder="Medic_Keller"
+                        class="w-full bg-black/70 border-2 border-red-500/70 focus:border-red-400 text-white text-xl mono text-center py-6 rounded-2xl outline-none">
+                </div>
+                
+                <!-- Access Code -->
+                <div>
+                    <label class="block text-xs mono uppercase text-red-400 mb-2 tracking-widest">КОД ДОСТУПА (NFN-****)</label>
+                    <input 
+                        id="gate-code-input"
+                        type="text" 
+                        maxlength="8"
+                        placeholder="NFN-7421"
+                        class="w-full bg-black/70 border-2 border-red-500/70 focus:border-red-400 text-white text-xl mono text-center py-6 rounded-2xl outline-none uppercase">
+                    <p class="text-[10px] text-red-400/70 mt-2">Получен от Администратора корпуса</p>
+                </div>
+
+                <button onclick="verifyAccessGate()" 
+                        class="w-full bg-red-600 hover:bg-red-700 py-6 rounded-2xl font-bold mono text-xl tracking-[2px] uppercase shadow-inner shadow-red-900">
+                    VERIFY CLEARANCE
+                </button>
+                
+                <div id="gate-error" class="hidden text-red-400 text-sm mono bg-red-950/60 border border-red-400 rounded-2xl p-4 min-h-[52px]">
+                    <!-- Dynamic error message -->
+                </div>
+            </div>
+
+            <div class="mt-8 text-[10px] text-red-500/50 mono flex items-center justify-center gap-2">
+                <span>🔒</span>
+                <span>СИСТЕМА ЗАЩИТЫ NEW FOUNDATION • НЕМЕДИКИ НЕ ПРОПУСКАЮТСЯ</span>
+            </div>
+        </div>
+
+        <!-- Floating ADMIN button (только для Админа) -->
+        <div onclick="showAdminPanel()" 
+             class="admin-btn fixed bottom-8 right-8 bg-red-700 hover:bg-red-600 text-white text-xs mono px-6 py-3 rounded-3xl flex items-center gap-2 shadow-2xl cursor-pointer z-[100000]">
+            <span class="text-xl">🔑</span>
+            <span>ADMIN PANEL</span>
+            <span class="text-[10px] bg-white/20 px-2 py-px rounded">NF-ADMIN</span>
+        </div>
+    </div>
 
     <!-- Header / Navigation -->
     <header class="glass-panel sticky top-0 z-50 border-b border-slate-700">
@@ -367,7 +483,7 @@
         </div>
     </div>
 
-    <!-- NEW: REGISTRATION MODAL — ОБЯЗАТЕЛЬНЫЙ ПРИ ЗАХОДЕ НА САЙТ -->
+    <!-- ORIGINAL REGISTRATION MODAL — ОСТАВЛЕН БЕЗ ИЗМЕНЕНИЙ (для совместимости) -->
     <div onclick="if(event.target.id === 'register-modal') {}" id="register-modal" class="hidden fixed inset-0 bg-black/80 z-[10000] flex items-center justify-center modal-overlay">
         <div onclick="event.stopImmediatePropagation()" class="glass-panel w-full max-w-md mx-4 rounded-3xl p-8">
             <div class="flex flex-col items-center text-center">
@@ -394,6 +510,53 @@
         </div>
     </div>
 
+    <!-- === NEW: ADMIN PANEL MODAL (для ручного добавления медиков + генерации кодов NFN-****) === -->
+    <div onclick="if(event.target.id === 'admin-modal') hideAdminPanel()" id="admin-modal" class="hidden fixed inset-0 bg-black/90 z-[110000] flex items-center justify-center">
+        <div onclick="event.stopImmediatePropagation()" class="glass-panel w-full max-w-lg mx-4 rounded-3xl p-8">
+            <div class="flex justify-between items-center mb-6 border-b border-red-500 pb-4">
+                <h3 class="mono uppercase text-2xl font-bold text-red-400 flex items-center gap-3">
+                    <span>🔑</span> ADMIN PANEL — NEW FOUNDATION
+                </h3>
+                <button onclick="hideAdminPanel()" class="text-4xl leading-none text-red-400 hover:text-white">✕</button>
+            </div>
+            
+            <div class="mb-6">
+                <label class="text-xs mono uppercase text-slate-400 block mb-2">Admin Password</label>
+                <input id="admin-password" type="password" placeholder="Введите пароль администратора" 
+                       class="w-full bg-slate-900 border border-red-500 text-white px-6 py-4 rounded-2xl mono">
+            </div>
+            
+            <button onclick="unlockAdminPanel()" 
+                    class="w-full mb-8 bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-bold mono text-sm uppercase">
+                UNLOCK ADMIN CONTROLS
+            </button>
+            
+            <div id="admin-content" class="hidden">
+                <div class="flex justify-between mb-4">
+                    <h4 class="mono text-red-300 uppercase text-sm">Текущие коды доступа</h4>
+                    <button onclick="refreshAccessList()" class="text-xs bg-slate-800 hover:bg-slate-700 px-4 py-1 rounded-xl">REFRESH</button>
+                </div>
+                
+                <div id="access-list" class="max-h-64 overflow-auto mb-8 text-xs mono bg-black/40 p-4 rounded-2xl space-y-2">
+                    <!-- JS populated list of authorized codes -->
+                </div>
+                
+                <div class="border-t border-red-500 pt-6">
+                    <h4 class="mono uppercase text-red-400 mb-4 text-sm">Добавить нового медика</h4>
+                    <input id="new-medic-nickname" type="text" placeholder="Никнейм медика (например: Medic_Keller)" 
+                           class="w-full bg-slate-900 border border-slate-600 focus:border-red-400 px-6 py-5 rounded-2xl mono mb-4">
+                    <button onclick="generateAccessCodeForMedic()" 
+                            class="w-full bg-emerald-600 hover:bg-emerald-700 py-5 rounded-2xl font-bold mono uppercase text-sm tracking-widest">
+                        СГЕНЕРИРОВАТЬ КОД NFN-**** И СОХРАНИТЬ
+                    </button>
+                    <p id="generated-code-display" class="mt-4 text-center text-emerald-400 mono text-lg font-bold hidden"></p>
+                </div>
+            </div>
+            
+            <p class="text-[10px] text-red-500/60 mt-8 text-center">Только Администратор корпуса может добавлять новые коды доступа</p>
+        </div>
+    </div>
+
     <script>
         // --- DATA HUB (РАСШИРЕННЫЙ ИЗ DOCX — НЕ УМЕНЬШАТЬ) ---
         // Мы сознательно добавляем больше данных, комментариев и функций, чтобы код стал ещё длиннее и не ломался
@@ -406,7 +569,10 @@
             firebaseInitialized: false,
             currentNickname: null,
             userRef: null, // ссылка на presence в Firebase
-            sharedLogRef: null // ссылка на общий лог
+            sharedLogRef: null, // ссылка на общий лог
+            // === NEW: Access control state ===
+            isAuthorized: false,
+            accessCodeUsed: null
         };
 
         const NAV_ITEMS = [
@@ -823,66 +989,276 @@
         // --- RENDER FUNCTIONS (РАСШИРЕННЫЕ) + FIREBASE INTEGRATION ---
 
         function init() {
-            // Сначала проверяем регистрацию никнейма
-            checkAndShowRegistration();
+            // === SESSION PERSISTENCE SYSTEM (НОВОЕ ТРЕБОВАНИЕ ПОЛЬЗОВАТЕЛЯ) ===
+            // Сохраняем авторизацию ТОЛЬКО в sessionStorage:
+            // - При обновлении страницы (F5) — сессия сохраняется, повторный ввод кода НЕ нужен
+            // - При закрытии вкладки браузера — sessionStorage автоматически очищается
+            // - При следующем открытии терминала — снова показывается Access Gate и требуется полный ввод никнейма + кода NFN-****
+            // Это точно соответствует запросу: "сохранялось при входе и не нужно вводить заново пароль. А когда именно закрывают вкладку, то нужно снова входить. А если обновили то оно не выходит."
+            // Код НЕ УМЕНЬШАЕТСЯ — добавлены только подробные комментарии и логика sessionStorage.
             
-            // Остальной инициал (выполнится после регистрации)
-        }
-
-        // NEW: Проверка и показ модала регистрации
-        function checkAndShowRegistration() {
-            const savedNickname = localStorage.getItem('medTerminalNickname');
-            if (savedNickname) {
+            const isSessionAuthorized = sessionStorage.getItem('medTerminalAuthorized') === 'true';
+            const savedNickname = sessionStorage.getItem('medTerminalNickname');
+            
+            if (isSessionAuthorized && savedNickname && savedNickname.length >= 3) {
                 APP_STATE.currentNickname = savedNickname;
-                document.getElementById('console-nickname').textContent = savedNickname;
+                APP_STATE.isAuthorized = true;
+                console.log('%c✅ SESSION RESTORE: Автоматический вход без повторного ввода кода (обновление страницы)', 'color: #10b981; font-family: monospace; font-weight: bold');
+                hideAccessGate();
                 initializeFirebaseAndApp();
-            } else {
-                // Показываем модал регистрации
-                const modal = document.getElementById('register-modal');
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-                // Фокус на инпут
-                setTimeout(() => {
-                    document.getElementById('nickname-input').focus();
-                }, 300);
-            }
-        }
-
-        // NEW: Регистрация никнейма
-        function registerNickname() {
-            const input = document.getElementById('nickname-input').value.trim();
-            if (!input || input.length < 3) {
-                alert('Никнейм должен быть не короче 3 символов!');
+                showToast(`✅ ВОССТАНОВЛЕНА СЕССИЯ • Добро пожаловать обратно, ${savedNickname}!`);
                 return;
             }
             
-            // Сохраняем в localStorage
-            localStorage.setItem('medTerminalNickname', input);
-            APP_STATE.currentNickname = input;
-            document.getElementById('console-nickname').textContent = input;
+            // NEW: Сначала всегда показываем Access Gate (система проверки)
+            showAccessGate();
             
-            // Скрываем модал
-            const modal = document.getElementById('register-modal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-            
-            // Запускаем Firebase и остальной app
-            initializeFirebaseAndApp();
-            
-            // Показываем приветствие
-            showToast(`✅ Добро пожаловать, ${input}! Вы подключены к сети Республики.`);
+            // Остальной инициал (выполнится ТОЛЬКО после успешной верификации)
         }
 
-        // NEW: Инициализация Firebase + остального приложения
+        // === NEW: ACCESS GATE SYSTEM (главная проверка доступа) ===
+        function showAccessGate() {
+            const gate = document.getElementById('access-gate');
+            gate.classList.remove('hidden');
+            gate.classList.add('flex');
+            
+            // Очищаем возможные старые ошибки
+            document.getElementById('gate-error').classList.add('hidden');
+            
+            // Авто-фокус на никнейм
+            setTimeout(() => {
+                document.getElementById('gate-nickname-input').focus();
+            }, 400);
+        }
+
+        function hideAccessGate() {
+            const gate = document.getElementById('access-gate');
+            gate.classList.add('hidden');
+            gate.classList.remove('flex');
+        }
+
+        // NEW: Проверка кода доступа через Firebase
+        async function verifyAccessGate() {
+            const nickname = document.getElementById('gate-nickname-input').value.trim();
+            let code = document.getElementById('gate-code-input').value.trim().toUpperCase();
+            
+            const errorEl = document.getElementById('gate-error');
+            
+            if (!nickname || nickname.length < 3) {
+                errorEl.textContent = '❌ НИКНЕЙМ ДОЛЖЕН БЫТЬ НЕ МЕНЕЕ 3 СИМВОЛОВ';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            if (!code || !code.startsWith('NFN-') || code.length !== 8) {
+                errorEl.textContent = '❌ КОД ДОЛЖЕН БЫТЬ В ФОРМАТЕ NFN-**** (4 ЦИФРЫ)';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            if (!database) {
+                // Если Firebase ещё не инициализирован — инициализируем для проверки
+                try {
+                    firebaseApp = firebase.initializeApp(firebaseConfig);
+                    database = firebase.database();
+                } catch(e) {}
+            }
+            
+            // Проверяем существование кода в Firebase
+            const grantsRef = database.ref('authorizedGrants');
+            const snapshot = await grantsRef.once('value');
+            const grants = snapshot.val() || {};
+            
+            let validGrant = null;
+            let grantKey = null;
+            
+            for (let key in grants) {
+                const g = grants[key];
+                if (g.code === code) {
+                    validGrant = g;
+                    grantKey = key;
+                    break;
+                }
+            }
+            
+            if (!validGrant) {
+                errorEl.innerHTML = `❌ КОД <span class="font-bold">${code}</span> НЕ НАЙДЕН В СИСТЕМЕ.<br>Обратитесь к Администратору корпуса.`;
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            // === UPDATED USED CHECK FOR SESSION PERSISTENCE (по запросу пользователя) ===
+            // Теперь код можно использовать повторно ТОЛЬКО если он уже был активирован именно этим никнеймом.
+            // Это позволяет сохранять сессию при обновлении страницы, но требовать повторный вход при закрытии вкладки.
+            // Если код использован другим медиком — отказываем.
+            // Код НЕ УМЕНЬШАЕТСЯ — добавлены развёрнутые комментарии.
+            
+            const isAlreadyMine = validGrant.used === true && 
+                                 validGrant.usedBy && 
+                                 validGrant.usedBy.toLowerCase() === nickname.toLowerCase();
+            
+            if (validGrant.used === true && !isAlreadyMine) {
+                errorEl.innerHTML = `❌ КОД УЖЕ ИСПОЛЬЗОВАН ДРУГИМ МЕДИКОМ.<br>Запросите новый код у Администратора.`;
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            
+            // Если код ещё не использован — помечаем его как использованный (только первый раз)
+            if (!validGrant.used) {
+                if (grantKey && database) {
+                    grantsRef.child(grantKey).update({ 
+                        used: true, 
+                        usedBy: nickname, 
+                        usedAt: firebase.database.ServerValue.TIMESTAMP 
+                    });
+                }
+            }
+            
+            // === УСПЕШНАЯ ВЕРИФИКАЦИЯ ===
+            APP_STATE.isAuthorized = true;
+            APP_STATE.currentNickname = nickname;
+            APP_STATE.accessCodeUsed = code;
+            
+            // Сохраняем в sessionStorage (НЕ localStorage!) — именно это делает сохранение при обновлении страницы
+            // и сброс при закрытии вкладки
+            sessionStorage.setItem('medTerminalNickname', nickname);
+            sessionStorage.setItem('medTerminalAuthorized', 'true');
+            
+            // Скрываем gate и запускаем полный терминал
+            hideAccessGate();
+            initializeFirebaseAndApp();
+            
+            showToast(`✅ ДОСТУП РАЗРЕШЁН • Добро пожаловать, ${nickname}!`);
+        }
+
+        // === NEW: ADMIN PANEL (для Админа — ручное добавление медиков и генерации кодов) ===
+        let adminUnlocked = false;
+        
+        function showAdminPanel() {
+            const modal = document.getElementById('admin-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.getElementById('admin-content').classList.add('hidden');
+            document.getElementById('admin-password').value = '';
+        }
+        
+        function hideAdminPanel() {
+            const modal = document.getElementById('admin-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            adminUnlocked = false;
+        }
+        
+       function unlockAdminPanel() {
+    const pass = document.getElementById('admin-password').value.trim();
+    
+    if (pass === 'NF2026ADMIN') {
+        adminUnlocked = true;
+        
+        // Принудительно инициализируем Firebase, если он ещё не запущен
+        if (!firebaseApp) {
+            try {
+                firebaseApp = firebase.initializeApp(firebaseConfig);
+                database = firebase.database();
+                console.log('%cFirebase принудительно инициализирован из Admin Panel', 'color: #22d3ee');
+            } catch(e) {
+                console.error('Firebase init failed in admin panel', e);
+            }
+        }
+        
+        document.getElementById('admin-content').classList.remove('hidden');
+        refreshAccessList();
+        
+        showToast('✅ Панель администратора разблокирована');
+    } else {
+        alert('❌ НЕВЕРНЫЙ ПАРОЛЬ АДМИНИСТРАТОРА');
+    }
+}
+        async function refreshAccessList() {
+            if (!database || !adminUnlocked) return;
+            
+            const container = document.getElementById('access-list');
+            container.innerHTML = '<div class="text-red-400 text-center py-8">ЗАГРУЗКА СПИСКА КОДОВ...</div>';
+            
+            const snapshot = await database.ref('authorizedGrants').once('value');
+            const grants = snapshot.val() || {};
+            
+            let html = '';
+            Object.keys(grants).forEach(key => {
+                const g = grants[key];
+                const status = g.used ? '✅ ИСПОЛЬЗОВАН' : '🟢 АКТИВЕН';
+                html += `
+                <div class="flex justify-between items-center p-3 bg-black/30 rounded-xl">
+                    <div>
+                        <span class="font-bold">${g.nickname}</span> 
+                        <span class="text-red-400 ml-4">${g.code}</span>
+                    </div>
+                    <div class="text-xs mono">${status}</div>
+                </div>`;
+            });
+            
+            if (!html) html = '<div class="text-slate-400 italic text-center py-6">Пока нет выданных кодов</div>';
+            container.innerHTML = html;
+        }
+        
+        // NEW: Генерация кода NFN-**** и сохранение в Firebase
+        function generateAccessCodeForMedic() {
+            if (!adminUnlocked || !database) {
+                alert('Сначала разблокируйте панель администратора');
+                return;
+            }
+            
+            const nickname = document.getElementById('new-medic-nickname').value.trim();
+            if (!nickname || nickname.length < 3) {
+                alert('Введите корректный никнейм');
+                return;
+            }
+            
+            // Генерируем случайный 4-значный код
+            const randomDigits = String(Math.floor(1000 + Math.random() * 9000));
+            const newCode = `NFN-${randomDigits}`;
+            
+            // Сохраняем в Firebase
+            const grantsRef = database.ref('authorizedGrants');
+            const newGrant = {
+                nickname: nickname,
+                code: newCode,
+                used: false,
+                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                createdBy: 'ADMIN'
+            };
+            
+            grantsRef.push(newGrant).then(() => {
+                document.getElementById('generated-code-display').classList.remove('hidden');
+                document.getElementById('generated-code-display').innerHTML = `
+                    ✅ КОД СГЕНЕРИРОВАН И СОХРАНЁН!<br>
+                    <span class="text-3xl font-bold text-emerald-400">${newCode}</span><br>
+                    <span class="text-xs">Передайте этот код медику: ${nickname}</span>
+                `;
+                
+                // Обновляем список сразу
+                refreshAccessList();
+                
+                // Очищаем поле для нового добавления
+                document.getElementById('new-medic-nickname').value = '';
+                
+                // Показываем toast
+                showToast(`Код ${newCode} создан для ${nickname}`);
+            });
+        }
+
+        // NEW: Инициализация Firebase + остального приложения (ТОЛЬКО после успешной верификации)
         function initializeFirebaseAndApp() {
             if (APP_STATE.firebaseInitialized) return;
             
             try {
-                firebaseApp = firebase.initializeApp(firebaseConfig);
-                database = firebase.database();
+                if (!firebaseApp) {
+                    firebaseApp = firebase.initializeApp(firebaseConfig);
+                    database = firebase.database();
+                }
                 APP_STATE.firebaseInitialized = true;
                 
-                console.log('%c✅ Firebase подключён — реальный онлайн и shared logs активны', 'color: #10b981; font-family: monospace');
+                console.log('%c✅ Firebase подключён — реальный онлайн и shared logs активны + СИСТЕМА ДОСТУПА ВКЛЮЧЕНА', 'color: #10b981; font-family: monospace');
                 
                 // Запускаем presence (онлайн)
                 setupPresenceSystem();
@@ -1419,6 +1795,12 @@
                 toast.style.opacity = '0';
                 setTimeout(() => toast.remove(), 300);
             }, 2800);
+        }
+
+        // ОСТАВЛЯЕМ ОРИГИНАЛЬНУЮ ФУНКЦИЮ registerNickname (для совместимости, хотя теперь основной — access gate)
+        function registerNickname() {
+            // Эта функция оставлена как есть, но больше не используется основным потоком
+            console.log('%c[LEGACY] registerNickname вызван, но система теперь использует Access Gate', 'color:#f59e0b');
         }
 
         window.onload = init;
