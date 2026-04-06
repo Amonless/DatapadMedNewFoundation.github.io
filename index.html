@@ -16,23 +16,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.1/firebase-database-compat.js"></script>
 
-    <!-- Chosen Palette: Deep Command (Slate-900 background, Blue-500 accents, Cyan data-lines, Red-500 alerts) -->
-    <!-- Sci-fi Datapad Clone Wars polish: улучшена читаемость, шрифты увеличены, контраст повышен, glow-эффекты как у голопроектора -->
-    
-    <!-- Application Structure Plan: 
-         1. Dashboard: Оперативная сводка с круговой диаграммой приоритетов (Триаж).
-         2. Personnel: Иерархия должностей и обязанностей (Интерн -> Старший спец).
-         3. Surgical Hub: Глубокая база данных по операциям (Протезирование, Органы, Пневмоторакс + ВСЕ протоколы из документов).
-         4. Pharmacy & Binds: Список препаратов, оборудования и готовые команды для быстрого RP-отыгрыша.
-         5. Protocols: Устав и правила поведения медика (полный расширенный).
-         6. NEW: Terms — подробный глоссарий медицинских терминов Республики (только справочный материал, без каких-либо баз пациентов или добавления записей).
-         7. NEW: Реальная онлайн-система + Shared Terminal Log + Никнейм-регистрация (Firebase Realtime Database).
-         8. FIX 2026: Кик теперь работает полностью (флаг kickedUsers + мгновенное отключение + блокировка повторного входа).
-         9. FIX 2026: Global Broadcast теперь мгновенно отображается + 1 сопровождающий экстренный звук + красная пульсация.
-         10. NEW: Manage Admins — возможность добавлять/удалять других администраторов (помимо себя).
-         11. DESIGN FIX 2026: Полная переработка читаемости под Sci-fi Datapad Star Wars Clone Wars стиль — шрифты увеличены, контраст повышен, glow добавлен минимально, без радикального изменения дизайна.
-         12. EXPANSION 2026: НОВАЯ ВКЛАДКА «ПРАВКИ» ТОЛЬКО ДЛЯ АДМИНОВ (из Firebase node 'admins'). Полное редактирование Сводки (Статус Отсека, Дежурный Хирург, Дежурный на ресепшене), выбор пользователей из authorizedGrants + onlineUsers, создание отчётов для высшего командования, реал-тайм обновление для ВСЕХ пользователей.
-         13. EXPANSION 2026 v2: НОВАЯ ФУНКЦИЯ В ПАНЕЛИ «ПРАВКИ» — Управление персоналом клонов (звание + номер CT-XXXX + позывной + подразделение). Данные сохраняются в Firebase node 'personnelDetails'. В разделе «Состав» карточки теперь динамические + при наведении показывается полная информация о клоне (номер, позывной, подразделение). -->
+
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;700&display=swap');
@@ -251,17 +235,7 @@
             50% { opacity: 0.4; transform: scale(1.03); }
         }
 
-        /* === FIX 2026: Emergency Broadcast Styles (красная пульсация + звук) === */
-        .emergency-message {
-            animation: emergencyPulse 1.2s ease-in-out 3;
-            background: linear-gradient(90deg, #ef4444, #f87171);
-            color: #fff;
-            box-shadow: 0 0 25px #ef4444;
-        }
-        @keyframes emergencyPulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(1.03); }
-        }
+        /* emergency-message styles defined above */
 
         /* === FIX 2026: Kicked Screen (полноэкранное уведомление о кике) === */
         .kicked-overlay {
@@ -313,7 +287,7 @@
             border-left: 4px solid #f59e0b;
         }
 
-        /* === EXPANSION 2026 v2: Стили для новой функции управления персоналом клонов в Правках === */
+        /* === EXPANSION 2026 v2: Карточки клонов — чистые, ровные, без конфликтов === */
         .personnel-manage-card {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -321,61 +295,74 @@
             transform: translateY(-2px);
             box-shadow: 0 0 20px -4px #22d3ee;
         }
-        .clone-hover-card {
-            transition: all 0.25s ease;
-        }
-        .clone-hover-card:hover .hover-reveal {
-            opacity: 1;
-            transform: translateY(0);
-            visibility: visible;
-        }
 
-        /* Дополнительные стили для hover-эффекта в разделе Состав */
-        .personnel-card {
-            position: relative;
-            overflow: hidden;
-        }
-        .personnel-card .hover-info {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.95));
-            padding: 12px;
-            transform: translateY(30px);
-            opacity: 0;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            pointer-events: none;
-        }
-        .personnel-card:hover .hover-info {
-            transform: translateY(0);
-            opacity: 1;
-        }
-
-        /* === ИСПРАВЛЕННЫЕ СТИЛИ ДЛЯ РОВНЫХ КРАСИВЫХ БЛОКОВ (ПО ТВОЕМУ ПРИКАЗУ) === */
+        /* Карточка клона в разделе Состав */
         .clone-hover-card {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            min-height: 168px;
             display: flex;
             flex-direction: column;
+            height: 180px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
         }
         .clone-hover-card:hover {
             transform: translateY(-4px);
-            box-shadow: 0 0 25px -5px #22d3ee;
-            border-color: #67e8f9;
+            box-shadow: 0 0 28px -6px #22d3ee;
+            border-color: #67e8f9 !important;
         }
-        .personnel-manage-card {
-            min-height: 92px;
+        .clone-card-top {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
         }
-        .hover-info {
-            opacity: 0;
-            transform: translateY(12px);
-            transition: all 0.35s ease;
+        .clone-card-bottom {
+            border-top: 1px solid rgba(34, 211, 238, 0.2);
+            padding-top: 10px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
         }
-        .clone-hover-card:hover .hover-info {
-            opacity: 1;
-            transform: translateY(0);
+        .clone-info-cell {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
         }
+        .clone-info-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            color: #22d3ee;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+        .clone-info-value {
+            font-size: 12px;
+            font-weight: 600;
+            color: #e0f2fe;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* === ЧАТ МЕДКОРПУСА === */
+        #terminal-log::-webkit-scrollbar { width: 4px; }
+        #terminal-log::-webkit-scrollbar-track { background: transparent; }
+        #terminal-log::-webkit-scrollbar-thumb { background: rgba(103,232,249,0.2); border-radius: 4px; }
+        #terminal-log::-webkit-scrollbar-thumb:hover { background: rgba(103,232,249,0.4); }
+
+        #chat-input:focus { outline: none; box-shadow: 0 0 0 2px rgba(34,211,238,0.3); }
+
+        /* === VERIFIED REPORTS === */
+        #verified-reports-list::-webkit-scrollbar { width: 4px; }
+        #verified-reports-list::-webkit-scrollbar-track { background: transparent; }
+        #verified-reports-list::-webkit-scrollbar-thumb { background: rgba(52,211,153,0.2); border-radius: 4px; }
+
+        /* Fix: admin tab hidden content */
+        #admin-tab-content-2.hidden { display: none !important; }
+
+        /* Scrollbar universal */
+        .overflow-y-auto::-webkit-scrollbar { width: 4px; }
+        .overflow-y-auto::-webkit-scrollbar-track { background: transparent; }
+        .overflow-y-auto::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
     </style>
 </head>
 <body class="min-h-screen pb-12 overflow-x-hidden">
@@ -455,17 +442,16 @@
                 <!-- Nav buttons populated by JS -->
             </nav>
             
-            <!-- NEW: Глобальная панель быстрого доступа (расширение функционала) + РЕАЛЬНЫЙ ОНЛАЙН -->
-            <div class="flex items-center gap-4">
-                <div onclick="showConsole()" class="cursor-pointer flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-1.5 rounded-xl text-xs mono transition-colors">
-                    <span class="text-emerald-400">◉</span>
-                    <span>КОНСОЛЬ КОМАНД</span>
-                </div>
-                <!-- REALTIME ONLINE COUNTER (обновляется из Firebase) -->
-                <div id="online-panel" class="text-xs mono text-slate-400 border border-slate-700 rounded-xl px-3 py-1 flex items-center online-pill">
-                    <span class="text-blue-400">ONLINE:</span>
-                    <span id="online-count" class="ml-2 text-emerald-400 font-bold">0 МЕДИКОВ</span>
-                    <span id="online-list" class="ml-3 text-[10px] text-cyan-300 hidden md:inline"></span>
+            <div class="flex items-center gap-3">
+                <button onclick="showConsole()" class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-xl text-xs mono transition-colors border border-slate-700">
+                    <span class="text-emerald-400">🎮</span>
+                    <span class="hidden sm:inline">RP-КОНСОЛЬ</span>
+                </button>
+                <div id="online-panel" class="text-xs mono text-slate-400 border border-slate-700 rounded-xl px-3 py-1.5 flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span class="text-blue-400">ОНЛАЙН:</span>
+                    <span id="online-count" class="ml-1 text-emerald-400 font-bold">0</span>
+                    <span id="online-list" class="ml-2 text-[10px] text-cyan-300 hidden lg:inline"></span>
                 </div>
             </div>
         </div>
@@ -527,14 +513,28 @@
                 </div>
             </div>
 
-            <!-- NEW: Fake Terminal Log в Dashboard (расширение функционала) — ТЕПЕРЬ SHARED ЧЕРЕЗ FIREBASE -->
-            <!-- FIX 2026: Полностью убраны любые fake-сообщения -->
-            <div class="mt-6 glass-panel p-5 rounded-xl border border-slate-700">
-                <h4 class="text-xs mono uppercase text-slate-400 mb-3 flex items-center gap-2"><span class="text-emerald-400">▶</span> ГЛОБАЛЬНЫЙ ЛОГ ТЕРМИНАЛА (SHARED)</h4>
-                <div id="terminal-log" class="mono text-[13.5px] text-slate-300 bg-black/40 p-4 rounded-xl h-48 overflow-y-auto font-light leading-tight space-y-1">
-                    <!-- Заполняется из Firebase в реальном времени -->
+            <!-- ВНУТРЕННИЙ ЧАТ МЕДКОРПУСА (SHARED ЧЕРЕЗ FIREBASE) -->
+            <div class="mt-6 glass-panel rounded-2xl border border-cyan-500/20 overflow-hidden">
+                <div class="flex items-center justify-between px-5 py-3 border-b border-slate-700 bg-black/30">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <h4 class="text-xs mono uppercase text-slate-300 font-bold tracking-widest">ЧАТ МЕДКОРПУСА — КАНАЛ СВЯЗИ</h4>
+                    </div>
+                    <span class="text-[10px] mono text-cyan-400/60">Сообщения видны всем медикам в реальном времени</span>
                 </div>
-                <p class="text-[10px] text-slate-500 mt-2 text-center">Все медики Республики видят этот лог в реальном времени</p>
+                <div id="terminal-log" class="mono text-sm text-slate-200 bg-black/50 px-4 py-3 h-56 overflow-y-auto leading-relaxed space-y-1">
+                    <!-- Сообщения из Firebase -->
+                </div>
+                <div class="flex gap-2 p-3 border-t border-slate-700 bg-slate-800/40">
+                    <input id="chat-input" type="text" maxlength="200"
+                           placeholder="Написать в чат медкорпуса... (/me действие, /roll число)"
+                           onkeydown="if(event.key==='Enter') sendChatMessage()"
+                           class="flex-1 bg-slate-900 border border-slate-600 focus:border-cyan-400 rounded-xl px-4 py-2.5 text-sm mono outline-none placeholder:text-slate-600 text-white">
+                    <button onclick="sendChatMessage()"
+                            class="bg-cyan-600 hover:bg-cyan-500 text-white px-5 py-2.5 rounded-xl text-xs mono font-bold tracking-widest transition-colors">
+                        ОТПРАВИТЬ
+                    </button>
+                </div>
             </div>
         </section>
 
@@ -543,7 +543,7 @@
             <div class="mb-8">
                 <h2 class="text-3xl font-bold mono mb-2 uppercase italic text-blue-500">Медицинская Иерархия</h2>
                 <p class="text-slate-400 max-w-2xl text-sm">Четкое разделение полномочий согласно уставу. Переход на следующую ступень возможен только после аттестации. Полный перечень обязанностей и ограничений взят из внутренних документов Республиканского медицинского корпуса.</p>
-                <p class="text-[10px] text-cyan-400 mt-3">EXPANSION 2026 v2: При наведении на карточки медиков теперь отображаются Позывной и Партия / Номер (данные из Firebase personnelDetails)</p>
+                <p class="text-[10px] text-cyan-400 mt-3">При наведении на карточки медиков отображается Позывной и Партия / Номер.</p>
             </div>
             <!-- Статическая иерархия (оставлена без изменений для совместимости) -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="personnel-grid-static">
@@ -739,15 +739,38 @@
                         <p class="text-[10px] text-slate-400 mt-3">Отчёт сохраняется в базе данных.</p>
                     </div>
 
-                    <!-- Список последних отчётов -->
-                    <div class="mb-12 border-t border-amber-400/30 pt-10">
-                        <div class="flex justify-between items-baseline mb-6">
-                            <h3 class="mono uppercase text-amber-300 text-lg">ПОСЛЕДНИЕ ОТЧЁТЫ (10 шт.)</h3>
-                            <button onclick="refreshReportsList()" 
-                                    class="text-xs bg-slate-800 hover:bg-slate-700 px-5 py-2 rounded-2xl mono">ОБНОВИТЬ СПИСОК</button>
+                    <!-- АКТИВНЫЕ ОТЧЁТЫ (требуют проверки) -->
+                    <div class="mb-8 border-t border-amber-400/30 pt-10">
+                        <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
+                            <h3 class="mono uppercase text-amber-300 text-lg flex items-center gap-2">
+                                <span>📋</span> АКТИВНЫЕ ОТЧЁТЫ (требуют проверки)
+                            </h3>
+                            <button onclick="refreshReportsList()"
+                                    class="text-xs bg-slate-800 hover:bg-slate-700 px-5 py-2 rounded-2xl mono">🔄 ОБНОВИТЬ</button>
                         </div>
-                        <div id="reports-list" class="space-y-4 max-h-[420px] overflow-y-auto pr-2">
-                            <!-- JS populated reports -->
+                        <div id="reports-list" class="space-y-4 max-h-[380px] overflow-y-auto pr-2">
+                            <!-- JS populated active reports -->
+                        </div>
+                    </div>
+
+                    <!-- БАЗА ПРОВЕРЕННЫХ ОТЧЁТОВ КОМАНДОВАНИЯ -->
+                    <div class="mb-12 border-t border-emerald-400/30 pt-10">
+                        <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
+                            <h3 class="mono uppercase text-emerald-300 text-lg flex items-center gap-2">
+                                <span>📁</span> БАЗА ПРОВЕРЕННЫХ ОТЧЁТОВ
+                                <span id="verified-count-badge" class="text-xs bg-emerald-900 text-emerald-300 px-3 py-1 rounded-3xl">0 записей</span>
+                            </h3>
+                            <div class="flex gap-2 flex-wrap">
+                                <input id="verified-search" type="text" placeholder="🔎 Поиск по названию..."
+                                       oninput="filterVerifiedReports()"
+                                       class="bg-slate-900 border border-slate-600 focus:border-emerald-400 rounded-xl px-4 py-2 text-xs mono outline-none w-52">
+                                <button onclick="refreshVerifiedReports()"
+                                        class="text-xs bg-slate-800 hover:bg-slate-700 px-5 py-2 rounded-2xl mono">🔄 ОБНОВИТЬ</button>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mb-4">Архив отчётов, одобренных командованием. Хранятся постоянно. Доступны для просмотра всем медикам.</p>
+                        <div id="verified-reports-list" class="space-y-3 max-h-[480px] overflow-y-auto pr-2">
+                            <!-- JS populated verified archive -->
                         </div>
                     </div>
 
@@ -816,54 +839,28 @@
 
     </main>
 
-    <!-- NEW: Floating Console Modal (расширение функционала) — теперь SHARED -->
+    <!-- CONSOLE MODAL: упрощённая версия (RP-команды) -->
     <div onclick="if(event.target.id === 'console-modal') hideConsole()" id="console-modal" class="hidden fixed inset-0 bg-black/70 z-[9999] flex items-end md:items-center justify-center">
-        <div onclick="event.stopImmediatePropagation()" class="glass-panel w-full max-w-2xl mx-4 mb-4 md:mb-0 rounded-3xl p-6 max-h-[85vh] flex flex-col">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="mono uppercase text-xl font-bold text-emerald-400">КОНСОЛЬ БЫСТРЫХ КОМАНД (SHARED)</h3>
+        <div onclick="event.stopImmediatePropagation()" class="glass-panel w-full max-w-xl mx-4 mb-4 md:mb-0 rounded-3xl p-6 flex flex-col gap-4">
+            <div class="flex justify-between items-center">
+                <h3 class="mono uppercase text-lg font-bold text-emerald-400">🎮 КОНСОЛЬ RP-КОМАНД</h3>
                 <button onclick="hideConsole()" class="text-slate-400 hover:text-white text-2xl leading-none">✕</button>
             </div>
-            <div id="console-output" class="mono text-[13.5px] bg-black/60 p-5 rounded-2xl flex-1 overflow-auto mb-6 text-emerald-300 font-light leading-relaxed min-h-[240px]">
-                <!-- SHARED LOG из Firebase — все видят сообщения друг друга -->
+            <p class="text-xs text-slate-400 mono">Введите команду — она отправится в чат медкорпуса. Никнейм: <span id="console-nickname" class="text-cyan-400 font-bold"></span></p>
+            <div id="console-output" class="mono text-xs bg-black/60 p-4 rounded-2xl overflow-auto text-emerald-300 leading-relaxed min-h-[80px] max-h-[160px]">
+                <!-- последние команды -->
             </div>
             <div class="flex gap-3">
-                <input id="console-input" type="text" placeholder="Введите /me или /roll команду..." 
-                       class="flex-1 bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-sm mono">
-                <button onclick="executeConsoleCommand()" 
-                        class="bg-emerald-500 hover:bg-emerald-600 px-8 rounded-2xl font-bold mono text-xs tracking-widest">EXECUTE &amp; BROADCAST</button>
-            </div>
-            <div class="text-[10px] text-slate-500 mt-4 flex justify-center gap-6">
-                <span>Команды видны ВСЕМ медикам в реальном времени • Никнейм: <span id="console-nickname" class="text-cyan-400"></span></span>
+                <input id="console-input" type="text" placeholder="/me действие или /roll число"
+                       onkeydown="if(event.key==='Enter') executeConsoleCommand()"
+                       class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm mono outline-none">
+                <button onclick="executeConsoleCommand()"
+                        class="bg-emerald-500 hover:bg-emerald-600 px-6 rounded-xl font-bold mono text-xs tracking-widest">EXECUTE</button>
             </div>
         </div>
     </div>
 
-    <!-- ORIGINAL REGISTRATION MODAL — ОСТАВЛЕН БЕЗ ИЗМЕНЕНИЙ (для совместимости) -->
-    <div onclick="if(event.target.id === 'register-modal') {}" id="register-modal" class="hidden fixed inset-0 bg-black/80 z-[10000] flex items-center justify-center modal-overlay">
-        <div onclick="event.stopImmediatePropagation()" class="glass-panel w-full max-w-md mx-4 rounded-3xl p-8">
-            <div class="flex flex-col items-center text-center">
-                <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-4xl mb-6">🩺</div>
-                <h2 class="text-2xl font-bold mono uppercase mb-2">ДОБРО ПОЖАЛОВАТЬ В МЕД-КОРПУС</h2>
-                <p class="text-slate-400 mb-8">Введите ваш игровой никнейм для регистрации в системе.<br>Это необходимо для реального онлайн-счётчика и общих логов.</p>
-                
-                <div class="w-full mb-6">
-                    <input 
-                        id="nickname-input"
-                        type="text" 
-                        maxlength="20"
-                        placeholder="Ваш никнейм (например: Medic_Keller)" 
-                        class="w-full bg-slate-900 border border-slate-600 focus:border-emerald-400 rounded-2xl px-6 py-5 text-lg mono text-center outline-none">
-                </div>
-                
-                <button onclick="registerNickname()" 
-                        class="w-full bg-emerald-500 hover:bg-emerald-600 py-4 rounded-2xl font-bold mono text-sm tracking-[1px] uppercase">
-                    ЗАРЕГИСТРИРОВАТЬСЯ И ПОДКЛЮЧИТЬСЯ
-                </button>
-                
-                <p class="text-[10px] text-slate-500 mt-6">После регистрации вы увидите себя в ONLINE и сможете использовать shared-консоль.</p>
-            </div>
-        </div>
-    </div>
+    <!-- Legacy register-modal removed: replaced by Access Gate -->
 
     <!-- === NEW: ADMIN PANEL MODAL (РАСШИРЕННЫЙ — УДАЛЕНИЕ, KICK, BROADCAST, ЗАЩИТА ОТ ДУБЛЕЙ + НОВЫЙ TAB MANAGE ADMINS) === -->
     <div onclick="if(event.target.id === 'admin-modal') hideAdminPanel()" id="admin-modal" class="hidden fixed inset-0 bg-black/90 z-[110000] flex items-center justify-center">
@@ -946,17 +943,32 @@
                     <p class="text-[10px] text-red-400 italic mt-6">Кик ставит блокировку. Кнопка UN-KICK снимает блокировку и позволяет пользователю зайти снова.</p>
                 </div>
 
-                <!-- TAB 2: GLOBAL BROADCAST (исправленная версия — звук + текст точно приходят) -->
-                <div id="admin-tab-content-2" class="flex-1 hidden flex flex-col">
-                    <h4 class="mono uppercase text-red-400 mb-4 text-sm">ГЛОБАЛЬНОЕ СООБЩЕНИЕ ДЛЯ ВСЕХ МЕДИКОВ (ЭКСТРЕННОЕ)</h4>
-                    <textarea id="global-broadcast-input" rows="5" 
-                              class="flex-1 bg-slate-900 border border-red-500 rounded-2xl p-4 mono text-sm resize-none"
-                              placeholder="Введите экстренное сообщение..."></textarea>
-                    <button onclick="sendGlobalBroadcast()" 
-                            class="mt-6 bg-red-600 hover:bg-red-700 py-6 rounded-2xl font-bold mono text-xl tracking-[2px] uppercase">
-                        🚨 ОТПРАВИТЬ ВСЕМ (С ЗВУКОМ И КРАСНОЙ ПОДСВЕТКОЙ)
-                    </button>
-                    <p class="text-[10px] text-slate-400 mt-3 text-center">Сообщение мгновенно появится у всех + короткий экстренный звук</p>
+                <!-- TAB 2: BROADCAST + ADMIN TOOLS -->
+                <div id="admin-tab-content-2" class="flex-1 hidden flex flex-col gap-6">
+                    <div>
+                        <h4 class="mono uppercase text-red-400 mb-3 text-sm">🚨 ЭКСТРЕННОЕ ОБЪЯВЛЕНИЕ ДЛЯ ВСЕХ</h4>
+                        <textarea id="global-broadcast-input" rows="4"
+                                  class="w-full bg-slate-900 border border-red-500 rounded-2xl p-4 mono text-sm resize-none"
+                                  placeholder="Введите экстренное сообщение..."></textarea>
+                        <button onclick="sendGlobalBroadcast()"
+                                class="mt-3 w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-bold mono text-base tracking-widest uppercase">
+                            🚨 ОТПРАВИТЬ ВСЕМ (СО ЗВУКОМ)
+                        </button>
+                    </div>
+                    <div class="border-t border-slate-700 pt-5">
+                        <h4 class="mono uppercase text-amber-400 mb-3 text-sm">🛠 ИНСТРУМЕНТЫ АДМИНИСТРАТОРА</h4>
+                        <div class="grid grid-cols-1 gap-3">
+                            <button onclick="clearChatLog()"
+                                    class="w-full bg-slate-700 hover:bg-slate-600 py-3 rounded-2xl mono text-sm font-bold flex items-center justify-center gap-2">
+                                🧹 ОЧИСТИТЬ ЧАТ МЕДКОРПУСА
+                            </button>
+                            <button onclick="exportReportsText()"
+                                    class="w-full bg-slate-700 hover:bg-slate-600 py-3 rounded-2xl mono text-sm font-bold flex items-center justify-center gap-2">
+                                📄 ЭКСПОРТ АРХИВА ОТЧЁТОВ (TXT)
+                            </button>
+                        </div>
+                        <p class="text-[10px] text-slate-500 mt-3">Инструменты доступны только Администраторам New Foundation Medical Corps</p>
+                    </div>
                 </div>
 
                 <!-- TAB 3: MANAGE ADMINS — НОВАЯ ФУНКЦИЯ (добавление другого админа) -->
@@ -1002,9 +1014,6 @@
 
     <script>
         // --- DATA HUB (РАСШИРЕННЫЙ ИЗ DOCX — НЕ УМЕНЬШАТЬ) ---
-        // Мы сознательно добавляем больше данных, комментариев и функций, чтобы код стал ещё длиннее и не ломался
-        // FIX 2026: Добавлены новые функции для кика, broadcast со звуком и manage admins — строки кода увеличены намеренно
-        // DESIGN FIX 2026: Полностью переработана читаемость (шрифты + glow) под Sci-fi Datapad Star Wars Clone Wars стиль
         // EXPANSION 2026: Добавлена полная панель «ПРАВКИ» для админов + динамический Global Status Bar + отчёты + выбор дежурных из списка зарегистрированных пользователей
         // EXPANSION 2026 v2: НОВАЯ ФУНКЦИЯ — управление званиями, номерами клонов, позывными и подразделениями в Firebase node 'personnelDetails'. 
         // В разделе Состав теперь hover-карточки с полной информацией о клоне. Код сильно расширен комментариями и дополнительными проверками.
@@ -1444,7 +1453,6 @@
         let firebaseApp = null;
         let database = null;
 
-        // --- RENDER FUNCTIONS (РАСШИРЕННЫЕ) + FIREBASE INTEGRATION + NEW ADMIN FEATURES + FIX KICK + FIX BROADCAST + MANAGE ADMINS + DESIGN FIX 2026 + EXPANSION 2026 ПРАВКИ + EXPANSION 2026 v2 ПЕРСОНАЛ КЛОНОВ ---
 
         function init() {
             // === SESSION PERSISTENCE SYSTEM (НОВОЕ ТРЕБОВАНИЕ ПОЛЬЗОВАТЕЛЯ) ===
@@ -1461,7 +1469,7 @@
             if (isSessionAuthorized && savedNickname && savedNickname.length >= 3) {
                 APP_STATE.currentNickname = savedNickname;
                 APP_STATE.isAuthorized = true;
-                console.log('%c✅ SESSION RESTORE: Автоматический вход без повторного ввода кода (обновление страницы)', 'color: #10b981; font-family: monospace; font-weight: bold');
+    
                 hideAccessGate();
                 initializeFirebaseAndApp();
                 showToast(`✅ ВОССТАНОВЛЕНА СЕССИЯ • Добро пожаловать обратно, ${savedNickname}!`);
@@ -1884,47 +1892,7 @@
             input.value = '';
         }
 
-        // === НАДЁЖНАЯ ЛОКАЛЬНАЯ ОБРАБОТКА СООБЩЕНИЙ (теперь ТОЛЬКО через child_added — дублирования исправлены) ===
-        // FIX ЗВУКА: звук теперь ТОЛЬКО в child_added (новые сообщения), а не при начальной загрузке старых логов
-        function appendLogEntryLocally(entry) {
-            if (!entry || !entry.message) return;
-            
-            const isEmergency = entry.isEmergency === true || 
-                               (entry.message && entry.message.includes('ГЛОБАЛЬНОЕ'));
-            
-            const logContainer = document.getElementById('terminal-log');
-            const consoleContainer = document.getElementById('console-output');
-            
-            // Добавляем в главный лог на дашборде
-            if (logContainer) {
-                const div = document.createElement('div');
-                div.className = `flex gap-2 ${isEmergency ? 'emergency-message' : ''}`;
-                div.innerHTML = `
-                    <span class="text-emerald-400">[${new Date(entry.timestamp || Date.now()).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'})}]</span>
-                    <span class="text-cyan-300">${entry.nickname || 'SYSTEM'}:</span>
-                    <span>${entry.message}</span>
-                `;
-                logContainer.appendChild(div);
-                
-                // Оставляем только последние 25 записей
-                while (logContainer.children.length > 25) {
-                    logContainer.removeChild(logContainer.firstChild);
-                }
-                logContainer.scrollTop = logContainer.scrollHeight;
-            }
-            
-            // Добавляем в консоль (если открыта)
-            if (consoleContainer) {
-                const cDiv = document.createElement('div');
-                cDiv.className = `mb-1 ${isEmergency ? 'emergency-message' : ''}`;
-                cDiv.innerHTML = `➤ <span class="text-cyan-300">${entry.nickname || 'SYSTEM'}</span>: ${entry.message}`;
-                consoleContainer.appendChild(cDiv);
-                consoleContainer.scrollTop = consoleContainer.scrollHeight;
-            }
-            
-            // === FIX ЗВУКА 2026: Звук ТОЛЬКО для НОВЫХ экстренных сообщений (child_added), НЕ при загрузке страницы ===
-            // Это полностью решает проблему "звук играет при открытии сайта без сообщения"
-        }
+
         
         // === ЭКСТРЕННЫЙ ЗВУК (короткий, заканчивается сразу) ===
         function playEmergencySound() {
@@ -2171,52 +2139,9 @@
             }
         }
 
-        // Обновление списка отчётов
-        async function refreshReportsList() {
-            if (!database) return;
-            
-            const container = document.getElementById('reports-list');
-            container.innerHTML = '<div class="text-amber-400 text-center py-8">ЗАГРУЗКА ОТЧЁТОВ...</div>';
-            
-            const snapshot = await database.ref('reports').limitToLast(10).once('value');
-            const reports = snapshot.val() || {};
-            
-            let html = '';
-            Object.keys(reports).reverse().forEach(key => {
-                const r = reports[key];
-                const date = new Date(r.timestamp).toLocaleString('ru-RU', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
-                html += `
-                <div class="report-item glass-panel p-5 rounded-2xl mb-3">
-                    <div class="flex justify-between text-xs mono text-amber-300 mb-1">
-                        <span>${r.author || 'ADMIN'}</span>
-                        <span>${date}</span>
-                    </div>
-                    <h4 class="font-bold mono text-lg">${r.title}</h4>
-                    <p class="text-sm text-slate-300 mt-3 leading-relaxed">${r.content}</p>
-                </div>`;
-            });
-            
-            if (!html) html = '<div class="text-slate-400 italic text-center py-12">Пока нет отчётов. Создайте первый!</div>';
-            container.innerHTML = html;
-        }
 
-        // Инициализация слушателей глобального статуса и отчётов (только если админ)
-        function setupEditsListeners() {
-            if (!database || !APP_STATE.isAdmin) return;
-            
-            // Глобальный статус (обновляется у ВСЕХ)
-            APP_STATE.globalStatusRef = database.ref('globalStatus');
-            APP_STATE.globalStatusRef.on('value', updateGlobalStatusBar);
-            
-            // Отчёты (только для админов)
-            APP_STATE.reportsRef = database.ref('reports');
-            // Слушатель child_added для живого обновления списка отчётов
-            APP_STATE.reportsRef.on('child_added', () => {
-                if (APP_STATE.currentTab === 'edits') refreshReportsList();
-            });
-            
-            console.log('%c✅ [EXPANSION 2026] Слушатели globalStatus и reports инициализированы (только для админа)', 'color:#f59e0b; font-weight:bold');
-        }
+
+
 
         // === EXPANSION 2026 v2: НОВЫЕ ФУНКЦИИ ДЛЯ УПРАВЛЕНИЯ ПЕРСОНАЛОМ КЛОНОВ (ПО ТВОЕМУ ПРИКАЗУ) ===
         // Загрузка данных персонала из Firebase
@@ -2235,7 +2160,7 @@
                 if (APP_STATE.currentTab === 'edits') {
                     refreshPersonnelList();
                 }
-                console.log('%c✅ [EXPANSION v2] Personnel details обновлены из Firebase', 'color:#22d3ee');
+    
             });
             
             // Первоначальная загрузка
@@ -2296,6 +2221,7 @@
             let html = '';
             Object.keys(APP_STATE.personnelDetails).sort().forEach(nick => {
                 const d = APP_STATE.personnelDetails[nick];
+                const safeNick = nick.replace(/'/g, "\\'");
                 html += `
                 <div class="personnel-manage-card flex justify-between items-center p-5 bg-black/30 rounded-2xl border border-emerald-500/30">
                     <div>
@@ -2305,6 +2231,16 @@
                     <div class="text-right">
                         <span class="block text-cyan-300">${d.callsign}</span>
                         <span class="text-xs mono text-slate-400">${d.cloneNumber}</span>
+                    </div>
+                    <div class="flex gap-2 ml-4">
+                        <button onclick="editExistingPersonnel('${safeNick}')" 
+                                class="text-xs mono px-3 py-1.5 bg-blue-600/30 hover:bg-blue-600 border border-blue-500/50 text-blue-300 rounded-xl transition-colors">
+                            ✏️ Ред.
+                        </button>
+                        <button onclick="deletePersonnelDetail('${safeNick}')" 
+                                class="kick-btn text-xs mono px-3 py-1.5 bg-red-600/30 hover:bg-red-600 border border-red-500/50 text-red-300 rounded-xl transition-colors">
+                            🗑 Удалить
+                        </button>
                     </div>
                 </div>`;
             });
@@ -2376,25 +2312,24 @@
             Object.keys(APP_STATE.personnelDetails).forEach(nick => {
                 const d = APP_STATE.personnelDetails[nick];
                 const card = document.createElement('div');
-                card.className = `clone-hover-card glass-panel p-6 rounded-3xl personnel-card border border-cyan-400/30 hover:border-cyan-400`;
+                card.className = `clone-hover-card glass-panel p-5 rounded-2xl border border-cyan-400/30`;
                 
                 card.innerHTML = `
-                    <div class="flex justify-between items-start mb-4">
-                        <div>
-                            <span class="font-bold text-2xl tracking-tight">${nick}</span>
-                            <span class="block text-emerald-400 text-base mt-1">${d.rank}</span>
+                    <div class="clone-card-top">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0"></span>
+                            <span class="font-bold text-base tracking-tight text-white truncate">${nick}</span>
                         </div>
+                        <span class="text-emerald-400 text-sm font-semibold ml-4">${d.rank}</span>
                     </div>
-                    <div class="mt-auto">
-                        <div class="hover-info text-sm">
-                            <div class="flex justify-between py-1 border-t border-cyan-900/50">
-                                <span class="mono text-cyan-400 text-xs">ПОЗЫВНОЙ</span>
-                                <span class="font-semibold text-white">${d.callsign}</span>
-                            </div>
-                            <div class="flex justify-between py-1">
-                                <span class="mono text-cyan-400 text-xs">ПАРТИЯ / НОМЕР</span>
-                                <span class="font-mono text-cyan-200">${d.cloneNumber}</span>
-                            </div>
+                    <div class="clone-card-bottom">
+                        <div class="clone-info-cell">
+                            <span class="clone-info-label">Позывной</span>
+                            <span class="clone-info-value">${d.callsign || '—'}</span>
+                        </div>
+                        <div class="clone-info-cell">
+                            <span class="clone-info-label">Номер</span>
+                            <span class="clone-info-value text-cyan-300">${d.cloneNumber || '—'}</span>
                         </div>
                     </div>
                 `;
@@ -2417,7 +2352,7 @@
                 }
                 APP_STATE.firebaseInitialized = true;
                 
-                console.log('%c✅ Firebase подключён — реальный онлайн и shared logs активны + СИСТЕМА ДОСТУПА ВКЛЮЧЕНА + ЗАЩИТА ОТ ДУБЛЕЙ + КИК ИСПРАВЛЕН + BROADCAST СО ЗВУКОМ + DESIGN FIX (читаемость) + EXPANSION 2026 ПРАВКИ + EXPANSION 2026 v2 ПЕРСОНАЛ КЛОНОВ', 'color: #10b981; font-family: monospace');
+                console.log('%c✅ Firebase connected', 'color:#10b981; font-family:monospace');
                 
                 // === EXPANSION 2026: Проверка является ли пользователь админом ===
                 const adminsSnap = await database.ref('admins').once('value');
@@ -2425,7 +2360,7 @@
                 APP_STATE.isAdmin = !!admins[APP_STATE.currentNickname.toLowerCase()];
                 
                 if (APP_STATE.isAdmin) {
-                    console.log('%c👑 [EXPANSION 2026] Пользователь — АДМИН. Вкладка «Правки» активирована.', 'color:#f59e0b; font-size:15px');
+    
                 }
                 
                 setupPresenceSystem();
@@ -2563,74 +2498,30 @@
             window.location.reload();
         }
 
-        // === НАДЁЖНЫЙ SHARED LOG LISTENER (child_added + начальная загрузка) ===
-let lastProcessedLogKey = null; // Ключ последнего обработанного сообщения
+        // ===== SHARED LOG LISTENER =====
+        let _initialLoadDone = false;
 
-        function appendLogEntryLocally(entry, key = null) {
-            if (!entry || !entry.message) return;
-
-            const isEmergency = entry.isEmergency === true || 
-                               (entry.message && entry.message.includes('ГЛОБАЛЬНОЕ'));
-
-            const logContainer = document.getElementById('terminal-log');
-            const consoleContainer = document.getElementById('console-output');
-
-            // Добавляем в лог
-            if (logContainer) {
-                const div = document.createElement('div');
-                div.className = `flex gap-2 ${isEmergency ? 'emergency-message' : ''}`;
-                div.innerHTML = `
-                    <span class="text-emerald-400">[${new Date(entry.timestamp || Date.now()).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'})}]</span>
-                    <span class="text-cyan-300">${entry.nickname || 'SYSTEM'}:</span>
-                    <span>${entry.message}</span>
-                `;
-                logContainer.appendChild(div);
-                while (logContainer.children.length > 25) {
-                    logContainer.removeChild(logContainer.firstChild);
-                }
-                logContainer.scrollTop = logContainer.scrollHeight;
-            }
-
-            if (consoleContainer) {
-                const cDiv = document.createElement('div');
-                cDiv.className = `mb-1 ${isEmergency ? 'emergency-message' : ''}`;
-                cDiv.innerHTML = `➤ <span class="text-cyan-300">${entry.nickname || 'SYSTEM'}</span>: ${entry.message}`;
-                consoleContainer.appendChild(cDiv);
-                consoleContainer.scrollTop = consoleContainer.scrollHeight;
-            }
-
-            // === ФИКС ЗВУКА: Проигрываем звук ТОЛЬКО для НОВЫХ сообщений ===
-            if (isEmergency && key && key !== lastProcessedLogKey) {
-                playEmergencySound();
-                lastProcessedLogKey = key;
-            }
+        function appendLogEntryLocally(entry, isNew = false) {
+            renderChatMessage(entry, isNew);
         }
         
-        // Обновлённая функция setupSharedLogListener
         function setupSharedLogListener() {
             if (!database) return;
-            
             APP_STATE.sharedLogRef = database.ref('sharedTerminalLog');
-            
-            // Начальная загрузка (без звука)
-            APP_STATE.sharedLogRef.limitToLast(20).once('value', (snapshot) => {
+
+            // Загружаем последние 40 сообщений без звука
+            APP_STATE.sharedLogRef.limitToLast(40).once('value', (snapshot) => {
                 const logs = snapshot.val() || {};
                 const sorted = Object.entries(logs).sort((a, b) => (a[1].timestamp || 0) - (b[1].timestamp || 0));
-                
-                sorted.forEach(([key, entry]) => {
-                    appendLogEntryLocally(entry, key);
-                });
-                console.log('%c✅ Загружены начальные логи (' + sorted.length + ' шт.) — звук отключён', 'color:#10b981');
+                sorted.forEach(([, entry]) => renderChatMessage(entry, false));
+                _initialLoadDone = true;
             });
-            
-            // Слушаем только новые сообщения
+
+            // Только новые сообщения (со звуком если emergency)
             APP_STATE.sharedLogRef.on('child_added', (snapshot) => {
+                if (!_initialLoadDone) return; // пропускаем дубли начальной загрузки
                 const entry = snapshot.val();
-                const key = snapshot.key;
-                
-                if (entry && entry.message) {
-                    appendLogEntryLocally(entry, key);
-                }
+                if (entry && entry.message) renderChatMessage(entry, true);
             });
         }
 
@@ -2672,14 +2563,18 @@ let lastProcessedLogKey = null; // Ключ последнего обработ�
                     <h4 class="font-bold mono text-lg">${r.title}</h4>
                     <p class="text-sm text-slate-300 mt-3 leading-relaxed">${r.content}</p>
                     
-                    <div class="mt-4 flex gap-3">
+                    <div class="mt-4 flex gap-2 flex-wrap">
+                        <button onclick="archiveReport('${key}')" 
+                                class="flex-1 bg-emerald-600 hover:bg-emerald-700 py-2.5 rounded-2xl text-sm mono font-bold flex items-center justify-center gap-2 min-w-[120px]">
+                            <span>📁</span> В АРХИВ
+                        </button>
                         <button onclick="markReportChecked('${key}')" 
-                                class="flex-1 bg-emerald-600 hover:bg-emerald-700 py-2.5 rounded-2xl text-sm mono font-bold flex items-center justify-center gap-2">
+                                class="flex-1 bg-blue-600 hover:bg-blue-700 py-2.5 rounded-2xl text-sm mono font-bold flex items-center justify-center gap-2 min-w-[120px]">
                             <span>✅</span> ПРОВЕРИЛ
                         </button>
                         <button onclick="deleteReport('${key}')" 
-                                class="flex-1 bg-red-600 hover:bg-red-700 py-2.5 rounded-2xl text-sm mono font-bold flex items-center justify-center gap-2">
-                            <span>🗑</span> УДАЛИТЬ СРАЗУ
+                                class="flex-1 bg-red-600 hover:bg-red-700 py-2.5 rounded-2xl text-sm mono font-bold flex items-center justify-center gap-2 min-w-[100px]">
+                            <span>🗑</span> УДАЛИТЬ
                         </button>
                     </div>
                     <div id="timer-${key}" class="mt-2 text-center">${timerHTML}</div>
@@ -2733,29 +2628,25 @@ let lastProcessedLogKey = null; // Ключ последнего обработ�
             refreshReportsList();
         }
 
-        // === ОБНОВЛЁННАЯ ФУНКЦИЯ setupEditsListeners ===
         function setupEditsListeners() {
             if (!database || !APP_STATE.isAdmin) return;
-            
+
             APP_STATE.globalStatusRef = database.ref('globalStatus');
             APP_STATE.globalStatusRef.on('value', updateGlobalStatusBar);
-            
+
             APP_STATE.reportsRef = database.ref('reports');
-            
-            // Слушатель для живого обновления списка отчётов
-            APP_STATE.reportsRef.on('child_added', () => {
-                if (APP_STATE.currentTab === 'edits') refreshReportsList();
+            const refreshIfEdits = () => { if (APP_STATE.currentTab === 'edits') refreshReportsList(); };
+            APP_STATE.reportsRef.on('child_added', refreshIfEdits);
+            APP_STATE.reportsRef.on('child_changed', refreshIfEdits);
+            APP_STATE.reportsRef.on('child_removed', refreshIfEdits);
+
+            // Слушатель для архива проверенных отчётов
+            database.ref('verifiedReports').on('child_added', () => {
+                if (APP_STATE.currentTab === 'edits') refreshVerifiedReports();
             });
-            
-            APP_STATE.reportsRef.on('child_changed', () => {
-                if (APP_STATE.currentTab === 'edits') refreshReportsList();
+            database.ref('verifiedReports').on('child_removed', () => {
+                if (APP_STATE.currentTab === 'edits') refreshVerifiedReports();
             });
-            
-            APP_STATE.reportsRef.on('child_removed', () => {
-                if (APP_STATE.currentTab === 'edits') refreshReportsList();
-            });
-            
-            console.log('%c✅ [EXPANSION 2026] Слушатели globalStatus и reports инициализированы', 'color:#f59e0b; font-weight:bold');
         }
 
         function broadcastToSharedLog(message) {
@@ -2798,7 +2689,7 @@ let lastProcessedLogKey = null; // Ключ последнего обработ�
                 editsBtn.onclick = () => switchTab('edits');
                 container.appendChild(editsBtn);
                 
-                console.log('%c✅ Вкладка «Правки» добавлена в навигацию (админ)', 'color:#f59e0b');
+
             }
         }
 
@@ -2811,12 +2702,11 @@ let lastProcessedLogKey = null; // Ключ последнего обработ�
             document.querySelectorAll('.content-section').forEach(s => s.classList.add('hidden'));
             const target = NAV_ITEMS.find(n => n.id === id);
             
-            // Специальная обработка для новой вкладки «Правки»
             if (id === 'edits') {
                 document.getElementById('sec-edits').classList.remove('hidden');
-                // Обновляем список отчётов при открытии вкладки
                 if (APP_STATE.isAdmin) {
                     refreshReportsList();
+                    refreshVerifiedReports();
                     refreshPersonnelList();
                 }
                 return;
@@ -3000,15 +2890,17 @@ let lastProcessedLogKey = null; // Ключ последнего обработ�
 
         function copyBindToClipboard(cmd, label) {
             const fullCommand = `bind * "say ${cmd}"`;
-            const el = document.createElement('textarea');
-            el.value = fullCommand;
-            document.body.appendChild(el);
-            el.select();
-            document.execCommand('copy');
-            document.body.removeChild(el);
-            
-            showToast(`✅ Бинд "${label}" скопирован в буфер!`);
-            broadcastToSharedLog(`[BIND] ${cmd}`);
+            try {
+                navigator.clipboard.writeText(fullCommand);
+            } catch(e) {
+                const el = document.createElement('textarea');
+                el.value = fullCommand;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+            }
+            showToast(`✅ Бинд «${label}» скопирован`);
             addToConsoleLog(cmd);
         }
 
@@ -3092,9 +2984,11 @@ let lastProcessedLogKey = null; // Ключ последнего обработ�
         }
 
         function showConsole() {
-            document.getElementById('console-modal').classList.remove('hidden');
-            document.getElementById('console-modal').classList.add('flex');
-            document.getElementById('console-nickname').textContent = APP_STATE.currentNickname || 'Гость';
+            const modal = document.getElementById('console-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            const nick = document.getElementById('console-nickname');
+            if (nick) nick.textContent = APP_STATE.currentNickname || 'Гость';
         }
         
         function hideConsole() {
@@ -3107,16 +3001,25 @@ let lastProcessedLogKey = null; // Ключ последнего обработ�
             const input = document.getElementById('console-input');
             const command = input.value.trim();
             if (!command) return;
-            
+            if (!database || !APP_STATE.currentNickname) { showToast('⚠️ Не авторизован'); return; }
+
             broadcastToSharedLog(command);
+
+            // Показываем в локальной консоли
+            const cOut = document.getElementById('console-output');
+            if (cOut) {
+                const d = document.createElement('div');
+                d.className = 'text-xs text-slate-400 mono';
+                d.textContent = '> ' + command;
+                cOut.appendChild(d);
+                cOut.scrollTop = cOut.scrollHeight;
+            }
+
             addToConsoleLog(command);
             input.value = '';
-            
-            setTimeout(() => {
-                if (command.includes('/me') || command.includes('/roll')) {
-                    showToast('✅ Команда выполнена в RP и отправлена всем');
-                }
-            }, 400);
+            if (command.startsWith('/me') || command.startsWith('/roll')) {
+                showToast('✅ Команда отправлена в чат медкорпуса');
+            }
         }
         
         function addToConsoleLog(text) {
@@ -3139,7 +3042,210 @@ let lastProcessedLogKey = null; // Ключ последнего обработ�
         }
 
         function registerNickname() {
-            console.log('%c[LEGACY] registerNickname вызван, но система теперь использует Access Gate', 'color:#f59e0b');
+            // Legacy stub — replaced by Access Gate
+        }
+
+        // =========================================================
+        //  ЧАТ МЕДКОРПУСА
+        // =========================================================
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            if (!input) return;
+            const msg = input.value.trim();
+            if (!msg) return;
+            if (!database || !APP_STATE.currentNickname) {
+                showToast('⚠️ Вы не авторизованы');
+                return;
+            }
+            broadcastToSharedLog(msg);
+            input.value = '';
+        }
+
+        // Рендер сообщения чата в DOM
+        function renderChatMessage(entry, isNew = false) {
+            if (!entry || !entry.message) return;
+            const isEmergency = entry.isEmergency === true || entry.message.includes('ГЛОБАЛЬНОЕ');
+            const isMe = entry.nickname === APP_STATE.currentNickname;
+            const isSystem = entry.nickname === 'ADMIN' || entry.nickname === 'SYSTEM';
+            const time = new Date(entry.timestamp || Date.now()).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+
+            const logContainer = document.getElementById('terminal-log');
+            const consoleContainer = document.getElementById('console-output');
+
+            if (logContainer) {
+                const div = document.createElement('div');
+                if (isEmergency) {
+                    div.className = 'emergency-message rounded-lg px-3 py-2 my-1';
+                    div.innerHTML = `<span class="text-[10px] mono opacity-70">${time}</span> <span class="font-bold">${entry.nickname}:</span> ${entry.message}`;
+                } else if (isSystem) {
+                    div.className = 'text-xs text-slate-500 italic px-2 py-0.5';
+                    div.innerHTML = `<span class="mono">[${time}]</span> ${entry.message}`;
+                } else {
+                    div.className = 'flex gap-2 items-start px-1 py-0.5 rounded hover:bg-white/5';
+                    div.innerHTML = `
+                        <span class="text-[10px] mono text-slate-500 mt-0.5 flex-shrink-0">${time}</span>
+                        <span class="font-bold ${isMe ? 'text-cyan-300' : 'text-emerald-300'} flex-shrink-0">${entry.nickname}:</span>
+                        <span class="text-slate-200 break-all">${entry.message}</span>`;
+                }
+                logContainer.appendChild(div);
+                while (logContainer.children.length > 60) logContainer.removeChild(logContainer.firstChild);
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+
+            if (consoleContainer) {
+                const cDiv = document.createElement('div');
+                cDiv.className = `text-xs mb-0.5 ${isEmergency ? 'emergency-message rounded px-2' : ''}`;
+                cDiv.innerHTML = `<span class="text-slate-500">[${time}]</span> <span class="text-cyan-300">${entry.nickname}:</span> ${entry.message}`;
+                consoleContainer.appendChild(cDiv);
+                consoleContainer.scrollTop = consoleContainer.scrollHeight;
+            }
+
+            if (isEmergency && isNew) playEmergencySound();
+        }
+
+        // =========================================================
+        //  БАЗА ПРОВЕРЕННЫХ ОТЧЁТОВ
+        // =========================================================
+        let _allVerifiedReports = {};
+
+        async function refreshVerifiedReports() {
+            if (!database) return;
+            const container = document.getElementById('verified-reports-list');
+            if (!container) return;
+            container.innerHTML = '<div class="text-emerald-400 text-center py-8 mono text-xs">ЗАГРУЗКА АРХИВА...</div>';
+
+            const snapshot = await database.ref('verifiedReports').orderByChild('verifiedAt').limitToLast(50).once('value');
+            _allVerifiedReports = snapshot.val() || {};
+            renderVerifiedReports(_allVerifiedReports);
+        }
+
+        function renderVerifiedReports(reports) {
+            const container = document.getElementById('verified-reports-list');
+            const badge = document.getElementById('verified-count-badge');
+            if (!container) return;
+
+            const keys = Object.keys(reports).reverse();
+            if (badge) badge.textContent = keys.length + ' записей';
+
+            if (keys.length === 0) {
+                container.innerHTML = '<div class="text-slate-400 italic text-center py-12">Архив пуст. Одобряйте отчёты кнопкой «В АРХИВ».</div>';
+                return;
+            }
+
+            container.innerHTML = keys.map(key => {
+                const r = reports[key];
+                const verDate = new Date(r.verifiedAt || r.timestamp).toLocaleString('ru-RU', {day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit'});
+                const origDate = r.timestamp ? new Date(r.timestamp).toLocaleDateString('ru-RU') : '—';
+                return `
+                <div class="glass-panel p-5 rounded-2xl border-l-4 border-emerald-500">
+                    <div class="flex flex-wrap justify-between items-start gap-2 mb-2">
+                        <div>
+                            <h4 class="font-bold mono text-base text-white">${r.title}</h4>
+                            <div class="flex gap-3 mt-1 text-[10px] mono">
+                                <span class="text-amber-300">✍️ ${r.author || '—'}</span>
+                                <span class="text-slate-500">Создан: ${origDate}</span>
+                                <span class="text-emerald-400">✅ Одобрен: ${verDate}</span>
+                                ${r.verifiedBy ? `<span class="text-cyan-400">Проверил: ${r.verifiedBy}</span>` : ''}
+                            </div>
+                        </div>
+                        <button onclick="deleteVerifiedReport('${key}')"
+                                class="text-[10px] mono px-3 py-1 bg-red-600/30 hover:bg-red-600 border border-red-500/40 text-red-300 rounded-xl transition-colors flex-shrink-0">
+                            🗑 УДАЛИТЬ
+                        </button>
+                    </div>
+                    <p class="text-sm text-slate-300 leading-relaxed border-t border-slate-700 pt-3 mt-2">${r.content}</p>
+                </div>`;
+            }).join('');
+        }
+
+        function filterVerifiedReports() {
+            const q = document.getElementById('verified-search').value.toLowerCase();
+            if (!q) { renderVerifiedReports(_allVerifiedReports); return; }
+            const filtered = {};
+            Object.keys(_allVerifiedReports).forEach(k => {
+                const r = _allVerifiedReports[k];
+                if ((r.title||'').toLowerCase().includes(q) || (r.content||'').toLowerCase().includes(q) || (r.author||'').toLowerCase().includes(q)) {
+                    filtered[k] = r;
+                }
+            });
+            renderVerifiedReports(filtered);
+        }
+
+        async function archiveReport(reportKey) {
+            if (!database || !APP_STATE.isAdmin) return;
+            const snapshot = await database.ref(`reports/${reportKey}`).once('value');
+            const r = snapshot.val();
+            if (!r) { showToast('❌ Отчёт не найден'); return; }
+
+            const archiveEntry = {
+                ...r,
+                verifiedAt: Date.now(),
+                verifiedBy: APP_STATE.currentNickname || 'ADMIN'
+            };
+
+            await database.ref('verifiedReports').push(archiveEntry);
+            await database.ref(`reports/${reportKey}`).remove();
+
+            showToast('✅ Отчёт одобрен и перемещён в архив командования');
+            refreshReportsList();
+            refreshVerifiedReports();
+
+            if (APP_STATE.sharedLogRef) {
+                APP_STATE.sharedLogRef.push({
+                    nickname: 'SYSTEM',
+                    message: `📁 [АРХИВ] Отчёт «${r.title}» одобрен и сохранён в базу командования`,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                });
+            }
+        }
+
+        async function deleteVerifiedReport(key) {
+            if (!database || !APP_STATE.isAdmin) return;
+            if (!confirm('Удалить запись из архива навсегда?')) return;
+            await database.ref(`verifiedReports/${key}`).remove();
+            showToast('🗑 Запись удалена из архива');
+            refreshVerifiedReports();
+        }
+
+        // =========================================================
+        //  ПОЛЕЗНЫЕ ADMIN-ИНСТРУМЕНТЫ
+        // =========================================================
+
+        async function clearChatLog() {
+            if (!database || !APP_STATE.isAdmin) return;
+            if (!confirm('Очистить весь чат медкорпуса? Это действие необратимо.')) return;
+            await database.ref('sharedTerminalLog').remove();
+            const log = document.getElementById('terminal-log');
+            if (log) log.innerHTML = '';
+            showToast('🧹 Чат очищен');
+        }
+
+        async function exportReportsText() {
+            if (!database || !APP_STATE.isAdmin) return;
+            const snap = await database.ref('verifiedReports').once('value');
+            const reports = snap.val() || {};
+            const keys = Object.keys(reports);
+            if (keys.length === 0) { showToast('⚠️ Архив пуст'); return; }
+
+            let text = 'АРХИВ ПРОВЕРЕННЫХ ОТЧЁТОВ — NEW FOUNDATION MEDICAL CORPS\n';
+            text += '='.repeat(60) + '\n\n';
+            keys.forEach(k => {
+                const r = reports[k];
+                const d = new Date(r.verifiedAt || r.timestamp).toLocaleString('ru-RU');
+                text += `[${d}] ${r.title}\n`;
+                text += `Автор: ${r.author || '—'} | Проверил: ${r.verifiedBy || '—'}\n`;
+                text += `${r.content}\n`;
+                text += '-'.repeat(60) + '\n\n';
+            });
+
+            const blob = new Blob([text], {type: 'text/plain;charset=utf-8'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'NF_Reports_Archive.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('📄 Архив экспортирован');
         }
 
         window.onload = init;
